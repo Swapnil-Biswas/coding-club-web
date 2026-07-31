@@ -1,0 +1,77 @@
+# ========================
+# Dependencies
+# ========================
+node_modules/
+.pnp
+.pnp.js
+
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========================
+# Next.js (Frontend)
+# ========================
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+frontend/*.log
+
+# ========================
+# Backend
+# ========================
+backend/data.db
+backend/uploads/
+backend/*.log
+backend/*.cookies
+backend/cookies*.txt
+
+# ========================
+# Root-level sensitive files
+# ========================
+cookies.txt
+
+# ========================
+# Logs
+# ========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========================
+# Build Outputs
+# ========================
+dist/
+build/
+out/
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Editor / IDE
+# ========================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ========================
+# Misc
+# ========================
+.claude/

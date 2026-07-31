@@ -1,0 +1,992 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/app/lib/api";
+import { useAuth } from "@/app/lib/auth";
+import { isCoreHeadPlus, isAdmin, isPresident } from "@/app/lib/roles";
+import type {
+  AnalyticsOverview,
+  ActivityLogEntry,
+  JoinRequest,
+  Sponsor,
+  Team,
+  AdminUser,
+  PublicUser,
+  ClubEvent,
+  CertificateTemplate,
+} from "@/app/lib/types";
+import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
+import {
+  PageHeader,
+  Spinner,
+  EmptyState,
+  Tabs,
+  Badge,
+  FormError,
+  FormSuccess,
+  Modal,
+  Field,
+  RoleChip,
+} from "@/app/components/app/ui";
+
+export default function DashboardPage() {
+  const { user, ready, openAuth } = useAuth();
+
+  if (!ready) {
+    return <div className="page"><div className="section-inner"><Spinner /></div></div>;
+  }
+  if (!user) {
+    return (
+      <div className="page"><div className="section-inner">
+        <EmptyState title="Sign in required" body="The dashboard is for Core Heads and admins." action={<button className="btn-primary" onClick={() => openAuth("login")}>Sign in</button>} />
+      </div></div>
+    );
+  }
+  if (!isCoreHeadPlus(user)) {
+    return (
+      <div className="page"><div className="section-inner">
+        <EmptyState title="Core Head access only" body="You need to be a Core Head, the President, or an admin to open the dashboard." />
+      </div></div>
+    );
+  }
+
+  return <DashboardInner />;
+}
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "events", label: "Events" },
+  { id: "teams", label: "Teams" },
+  { id: "certificates", label: "Certificates" },
+  { id: "sponsors", label: "Sponsors" },
+  { id: "requests", label: "Join Requests" },
+  { id: "content", label: "About Page" },
+  { id: "admin", label: "Admin" },
+];
+
+function DashboardInner() {
+  const { user } = useAuth();
+  const admin = isAdmin(user);
+  const [tab, setTab] = useState("overview");
+
+  const visibleTabs = TABS.filter((t) => (t.id === "admin" ? admin : true));
+
+  return (
+    <div className="page">
+      <div className="section-inner section-inner-wide">
+        <PageHeader
+          eyebrow="// Dashboard"
+          title={admin ? "Platform" : isPresident(user) ? "President" : "Core Head"}
+          ghost="console."
+          sub="Manage events, teams, certificates, sponsors, requests, and site content."
+        />
+        <Tabs active={tab} onChange={setTab} tabs={visibleTabs} />
+        {tab === "overview" && <OverviewTab />}
+        {tab === "events" && <EventsTab />}
+        {tab === "teams" && <TeamsTab />}
+        {tab === "certificates" && <CertificatesTab />}
+        {tab === "sponsors" && <SponsorsTab />}
+        {tab === "requests" && <RequestsTab />}
+        {tab === "content" && <ContentTab />}
+        {tab === "admin" && admin && <AdminTab />}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ OVERVIEW ============================ */
+function OverviewTab() {
+  const { user } = useAuth();
+  const [data, setData] = useState<AnalyticsOverview | null>(null);
+  const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
+  const canSeeActivity = isAdmin(user) || isPresident(user);
+
+  useEffect(() => {
+    api<AnalyticsOverview>("/analytics").then(setData).catch(() => {});
+    if (canSeeActivity) {
+      api<ActivityLogEntry[] | { logs?: ActivityLogEntry[] }>("/activity-log?limit=12")
+        .then((d) => setActivity(Array.isArray(d) ? d : d.logs || []))
+        .catch(() => {});
+    }
+  }, [canSeeActivity]);
+
+  if (!data) return <Spinner label="Loading analytics" />;
+  const t = data.totals;
+  const stats = [
+    { label: "Members", value: t.total_users },
+    { label: "Events", value: t.total_events },
+    { label: "Registrants", value: t.total_registrants },
+    { label: "Checked in", value: t.total_checked_in },
+    { label: "Teams", value: t.total_teams },
+    { label: "Certificates", value: t.total_certificates },
+    { label: "History entries", value: t.total_history },
+  ];
+  const attendancePct = t.total_registrants ? Math.round((t.total_checked_in / t.total_registrants) * 100) : 0;
+
+  return (
+    <div className="stack-lg">
+      <div className="stat-grid">
+        {stats.map((s) => (
+          <div className="stat-card" key={s.label}>
+            <div className="stat-card-num">{s.value}</div>
+            <div className="stat-card-label">{s.label}</div>
+          </div>
+        ))}
+        <div className="stat-card">
+          <div className="stat-card-num">{attendancePct}%</div>
+          <div className="stat-card-label">Attendance</div>
+        </div>
+      </div>
+
+      <div className="grid grid-2">
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Events by status</h3>
+          <div className="stack" style={{ gap: 10 }}>
+            {data.eventsByStatus.map((r) => (
+              <div className="split" key={r.status}>
+                <Badge variant={r.status === "published" ? "published" : r.status === "draft" ? "draft" : "completed"}>{r.status}</Badge>
+                <span className="stat-card-num" style={{ fontSize: 22 }}>{r.count}</span>
+              </div>
+            ))}
+            {data.eventsByStatus.length === 0 && <p className="card-muted">No events yet.</p>}
+          </div>
+        </div>
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Users by role</h3>
+          <div className="stack" style={{ gap: 10 }}>
+            {data.usersByRole.map((r) => (
+              <div className="split" key={r.role}>
+                <RoleChip role={r.role} />
+                <span className="stat-card-num" style={{ fontSize: 22 }}>{r.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Recent events</h3>
+        <div className="stack" style={{ gap: 8 }}>
+          {data.recentEvents.map((e) => (
+            <div className="split" key={e.id} style={{ padding: "10px 14px", background: "var(--grey-50)", borderRadius: 10 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{e.title}</span>
+              <span className="cluster" style={{ gap: 10 }}>
+                <Badge variant={e.status === "published" ? "published" : e.status === "draft" ? "draft" : "completed"}>{e.status}</Badge>
+                <span className="text-mono text-sm text-muted">{formatDate(e.start_datetime)}</span>
+              </span>
+            </div>
+          ))}
+          {data.recentEvents.length === 0 && <p className="card-muted">No events yet.</p>}
+        </div>
+      </div>
+
+      {canSeeActivity && (
+        <div className="card" style={{ padding: 24 }}>
+          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Recent activity</h3>
+          <div className="stack" style={{ gap: 8 }}>
+            {activity.map((a) => (
+              <div key={a.id} className="split" style={{ padding: "10px 14px", background: "var(--grey-50)", borderRadius: 10 }}>
+                <span style={{ fontSize: 13.5 }}>
+                  <strong>{a.user_name || "System"}</strong> {a.action.toLowerCase()} <span className="text-muted">{a.entity}</span>
+                </span>
+                <span className="text-mono text-sm text-muted">{formatDateTime(a.timestamp)}</span>
+              </div>
+            ))}
+            {activity.length === 0 && <p className="card-muted">No activity recorded yet.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ EVENTS ============================ */
+function EventsTab() {
+  const [events, setEvents] = useState<ClubEvent[] | null>(null);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [editing, setEditing] = useState<ClubEvent | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  async function load() {
+    try {
+      const data = await api<{ events: ClubEvent[] }>("/events");
+      setEvents(data.events);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load events");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function save(ev: ClubEvent, patch: Partial<ClubEvent>) {
+    setError(""); setMsg("");
+    try {
+      await api(`/events/${ev.id}`, { method: "PATCH", body: patch });
+      setMsg(`"${ev.title}" updated.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+      throw err;
+    }
+  }
+
+  async function remove(ev: ClubEvent) {
+    if (!confirm(`Delete "${ev.title}"? This cannot be undone.`)) return;
+    setError(""); setMsg("");
+    try {
+      await api(`/events/${ev.id}`, { method: "DELETE" });
+      setMsg(`"${ev.title}" deleted.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  return (
+    <div className="stack-lg">
+      <div className="split">
+        <FormError>{error}</FormError>
+        <FormSuccess>{msg}</FormSuccess>
+        <span />
+        <button className="btn-primary" onClick={() => setCreating(true)}>+ New event</button>
+      </div>
+
+      {events === null && !error && <Spinner label="Loading events" />}
+      {events && events.length === 0 && <EmptyState title="No events yet" body="Create your first event to get started." />}
+
+      {events && events.length > 0 && (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr><th>Event</th><th>Date</th><th>Visibility</th><th>Status</th><th style={{ textAlign: "right" }}>Actions</th></tr>
+            </thead>
+            <tbody>
+              {events.map((ev) => (
+                <tr key={ev.id}>
+                  <td style={{ fontWeight: 600, color: "var(--grey-900)", maxWidth: 240 }}>{ev.title}</td>
+                  <td className="text-sm text-muted">{formatDate(ev.start_datetime)}</td>
+                  <td className="text-sm">{ev.visibility === "member_only" ? "Members" : "Public"}</td>
+                  <td><Badge variant={ev.status === "published" ? "published" : ev.status === "draft" ? "draft" : "completed"}>{ev.status}</Badge></td>
+                  <td>
+                    <div className="table-actions">
+                      <button className="btn-secondary btn-sm" onClick={() => setEditing(ev)}>Edit</button>
+                      {ev.status === "draft" && (
+                        <button className="btn-secondary btn-sm" onClick={() => save(ev, { status: "published" }).catch(() => {})}>Publish</button>
+                      )}
+                      {ev.status === "published" && (
+                        <button className="btn-secondary btn-sm" onClick={() => save(ev, { status: "completed" }).catch(() => {})}>Complete</button>
+                      )}
+                      <a className="btn-ghost btn-sm" href={`/events/${ev.id}/manage`}>Manage</a>
+                      <button className="btn-danger btn-sm" onClick={() => remove(ev)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <EventFormModal
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSaved={async () => { setCreating(false); await load(); }}
+      />
+      <EventFormModal
+        open={!!editing}
+        event={editing}
+        onClose={() => setEditing(null)}
+        onSaved={async () => { setEditing(null); await load(); }}
+      />
+    </div>
+  );
+}
+
+function EventFormModal({
+  open,
+  onClose,
+  onSaved,
+  event,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void> | void;
+  event?: ClubEvent | null;
+}) {
+  const isEdit = !!event;
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    start_datetime: "",
+    end_datetime: "",
+    venue: "",
+    category: "",
+    visibility: "public",
+    unstop_link: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setForm(
+        event
+          ? {
+              title: event.title,
+              description: event.description,
+              start_datetime: toLocalInput(event.start_datetime),
+              end_datetime: toLocalInput(event.end_datetime),
+              venue: event.venue,
+              category: event.category,
+              visibility: event.visibility,
+              unstop_link: event.unstop_link || "",
+            }
+          : { title: "", description: "", start_datetime: "", end_datetime: "", venue: "", category: "", visibility: "public", unstop_link: "" },
+      );
+    }
+  }, [open, event]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const body = {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        start_datetime: new Date(form.start_datetime).toISOString(),
+        end_datetime: new Date(form.end_datetime).toISOString(),
+        venue: form.venue.trim(),
+        category: form.category.trim(),
+        visibility: form.visibility,
+        unstop_link: form.unstop_link.trim() || null,
+      };
+      if (isEdit && event) {
+        await api(`/events/${event.id}`, { method: "PATCH", body });
+      } else {
+        await api("/events", { method: "POST", body });
+      }
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} large title={isEdit ? "Edit event" : "New event"} eyebrow="// Event" sub="Fill in the details. Publish from the events list when ready.">
+      <form onSubmit={submit}>
+        <FormError>{error}</FormError>
+        <Field label="Title" required>
+          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+        </Field>
+        <Field label="Description">
+          <textarea className="textarea" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </Field>
+        <div className="form-row">
+          <Field label="Starts" required>
+            <input className="input" type="datetime-local" value={form.start_datetime} onChange={(e) => setForm({ ...form, start_datetime: e.target.value })} required />
+          </Field>
+          <Field label="Ends" required>
+            <input className="input" type="datetime-local" value={form.end_datetime} onChange={(e) => setForm({ ...form, end_datetime: e.target.value })} required />
+          </Field>
+        </div>
+        <div className="form-row">
+          <Field label="Venue">
+            <input className="input" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Seminar Hall B" />
+          </Field>
+          <Field label="Category">
+            <input className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Hackathon" />
+          </Field>
+        </div>
+        <div className="form-row">
+          <Field label="Visibility" required>
+            <select className="select" value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value })}>
+              <option value="public">Public</option>
+              <option value="member_only">Members only</option>
+            </select>
+          </Field>
+          <Field label="Unstop link" hint="Required to publish">
+            <input className="input" value={form.unstop_link} onChange={(e) => setForm({ ...form, unstop_link: e.target.value })} placeholder="https://unstop.com/…" />
+          </Field>
+        </div>
+        <button className="btn-primary btn-block" type="submit" disabled={busy}>
+          {busy ? "Saving…" : isEdit ? "Save changes" : "Create event"}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+function toLocalInput(iso: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* ============================ TEAMS ============================ */
+function TeamsTab() {
+  const [teams, setTeams] = useState<Team[] | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newTeam, setNewTeam] = useState({ name: "", description: "", logo_url: "" });
+  const [selected, setSelected] = useState<Team | null>(null);
+
+  async function load() {
+    try {
+      const data = await api<{ teams: Team[] }>("/teams");
+      setTeams(data.teams);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load teams");
+    }
+  }
+  useEffect(() => {
+    load();
+    api<{ users: AdminUser[] }>("/users").then((d) => setUsers(d.users)).catch(() => {});
+  }, []);
+
+  const coreUsers = users.filter((u) => ["core", "core_head", "admin"].includes(u.role));
+
+  async function createTeam(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setMsg("");
+    try {
+      await api("/teams", { method: "POST", body: newTeam });
+      setMsg(`Team "${newTeam.name}" created.`);
+      setNewTeam({ name: "", description: "", logo_url: "" });
+      setCreating(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Create failed");
+    }
+  }
+
+  async function removeTeam(t: Team) {
+    if (!confirm(`Delete team "${t.name}"?`)) return;
+    setError("");
+    try {
+      await api(`/teams/${t.id}`, { method: "DELETE" });
+      setMsg(`Team deleted.`);
+      setSelected(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  return (
+    <div className="stack-lg">
+      <div className="split">
+        <FormError>{error}</FormError>
+        <FormSuccess>{msg}</FormSuccess>
+        <span />
+        <button className="btn-primary" onClick={() => setCreating(!creating)}>{creating ? "Cancel" : "+ New team"}</button>
+      </div>
+
+      {creating && (
+        <form className="card" onSubmit={createTeam} style={{ padding: 24 }}>
+          <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Create a team</h3>
+          <div className="form-row">
+            <Field label="Team name" required>
+              <input className="input" value={newTeam.name} onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })} required />
+            </Field>
+            <Field label="Logo URL">
+              <input className="input" value={newTeam.logo_url} onChange={(e) => setNewTeam({ ...newTeam, logo_url: e.target.value })} placeholder="https://…" />
+            </Field>
+          </div>
+          <Field label="Description" required>
+            <textarea className="textarea" value={newTeam.description} onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })} required />
+          </Field>
+          <button className="btn-primary btn-sm" type="submit">Create team</button>
+        </form>
+      )}
+
+      {teams === null && !error && <Spinner label="Loading teams" />}
+      {teams && teams.length === 0 && <EmptyState title="No teams yet" body="Create a team to get started." />}
+
+      {teams && teams.length > 0 && (
+        <div className="grid grid-2">
+          {teams.map((t) => (
+            <div key={t.id} className="card card-hover" style={{ padding: 22 }}>
+              <div className="split split-start">
+                <div className="cluster" style={{ gap: 12 }}>
+                  {t.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="team-logo" src={t.logo_url} alt="" style={{ width: 44, height: 44 }} />
+                  ) : (
+                    <div className="team-logo" style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{t.name.charAt(0)}</div>
+                  )}
+                  <div>
+                    <div className="card-title" style={{ fontSize: 17 }}>{t.name}</div>
+                    <div className="text-mono text-sm text-muted">Lead · {t.owner_name || "—"}</div>
+                  </div>
+                </div>
+                <div className="cluster" style={{ gap: 6 }}>
+                  <button className="btn-secondary btn-sm" onClick={() => setSelected(t)}>Manage</button>
+                  <button className="btn-danger btn-sm" onClick={() => removeTeam(t)}>Delete</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <TeamMembersModal team={selected} coreUsers={coreUsers} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}
+
+function TeamMembersModal({ team, coreUsers, onClose }: { team: Team; coreUsers: AdminUser[]; onClose: () => void }) {
+  const [members, setMembers] = useState<{ id: number; user_id: number; name: string; designation: string; role: string }[]>([]);
+  const [addId, setAddId] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      const data = await api<{ members: { id: number; user_id: number; name: string; designation: string; role: string }[] }>(`/teams/${team.id}/members`);
+      setMembers(data.members);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load members");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  const memberIds = new Set(members.map((m) => m.user_id));
+  const available = coreUsers.filter((u) => !memberIds.has(u.id));
+
+  async function addMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addId) return;
+    setError("");
+    try {
+      await api(`/teams/${team.id}/members`, { method: "POST", body: { user_id: Number(addId), designation } });
+      setAddId("");
+      setDesignation("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Add failed");
+    }
+  }
+
+  async function removeMember(userId: number) {
+    setError("");
+    try {
+      await api(`/teams/${team.id}/members/${userId}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remove failed");
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} large title={team.name} eyebrow="// Manage members" sub="Add Core members and assign designations.">
+      <FormError>{error}</FormError>
+      <form onSubmit={addMember} className="card" style={{ padding: 18, marginBottom: 18, background: "var(--grey-50)" }}>
+        <div className="form-row">
+          <Field label="Member" required>
+            <select className="select" value={addId} onChange={(e) => setAddId(e.target.value)} required>
+              <option value="">Select a Core member…</option>
+              {available.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} ({u.role === "core_head" ? "Core Head" : u.role})</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Designation">
+            <input className="input" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Backend Developer" />
+          </Field>
+        </div>
+        <button className="btn-primary btn-sm" type="submit">Add to team</button>
+      </form>
+
+      <div className="stack" style={{ gap: 8 }}>
+        {members.map((m) => (
+          <div key={m.id} className="split" style={{ padding: "11px 15px", border: "1px solid var(--grey-100)", borderRadius: 10 }}>
+            <div>
+              <span style={{ fontWeight: 600, color: "var(--grey-900)", fontSize: 14 }}>{m.name}</span>
+              <span className="text-mono text-sm text-muted" style={{ marginLeft: 10 }}>{m.designation || (m.role === "core_head" ? "Core Head" : "Core")}</span>
+            </div>
+            <button className="btn-danger btn-sm" onClick={() => removeMember(m.user_id)}>Remove</button>
+          </div>
+        ))}
+        {members.length === 0 && <p className="card-muted" style={{ textAlign: "center", padding: 12 }}>No members yet.</p>}
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================ CERTIFICATES ============================ */
+function CertificatesTab() {
+  const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+  const [name, setName] = useState("");
+  const [file, setFile] = useState("");
+  const [preview, setPreview] = useState("");
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+
+  async function load() {
+    try {
+      const data = await api<{ templates: CertificateTemplate[] }>("/certificates/templates");
+      setTemplates(data.templates);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load templates");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function createTemplate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setMsg("");
+    try {
+      await api("/certificates/templates", { method: "POST", body: { name: name.trim(), template_file: file.trim(), preview_image: preview.trim() || null } });
+      setMsg("Template created.");
+      setName(""); setFile(""); setPreview("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Create failed");
+    }
+  }
+
+  return (
+    <div className="stack-lg">
+      <div className="card" style={{ padding: 24, background: "var(--grey-50)" }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 8 }}>How certificates work</h3>
+        <p className="card-muted" style={{ lineHeight: 1.7 }}>
+          Generate certificates for an event from its <strong>Manage event</strong> page (Core Head of that event, President, or admin).
+          Certificates are only issued for registrants who <strong>checked in</strong>, and only once the event is <strong>completed</strong>.
+          Templates below are reusable; the built-in generator works without one too.
+        </p>
+      </div>
+
+      <div className="split">
+        <FormError>{error}</FormError>
+        <FormSuccess>{msg}</FormSuccess>
+      </div>
+
+      <form className="card" onSubmit={createTemplate} style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>New template</h3>
+        <div className="form-row">
+          <Field label="Name" required>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Participation" required />
+          </Field>
+          <Field label="Preview image URL">
+            <input className="input" value={preview} onChange={(e) => setPreview(e.target.value)} placeholder="https://…" />
+          </Field>
+        </div>
+        <Field label="Template file URL" required hint="Link to an HTML/PDF template with {{name}}, {{event_name}}, etc.">
+          <input className="input" value={file} onChange={(e) => setFile(e.target.value)} placeholder="https://…" required />
+        </Field>
+        <button className="btn-primary btn-sm" type="submit">Create template</button>
+      </form>
+
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 16 }}>Templates</h3>
+        <div className="stack" style={{ gap: 8 }}>
+          {templates.map((t) => (
+            <div key={t.id} className="split" style={{ padding: "11px 15px", background: "var(--grey-50)", borderRadius: 10 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
+              <span className="text-mono text-sm text-muted">{t.creator_name || "—"}</span>
+            </div>
+          ))}
+          {templates.length === 0 && <p className="card-muted">No templates yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ SPONSORS ============================ */
+function SponsorsTab() {
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [form, setForm] = useState({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [open, setOpen] = useState(false);
+
+  async function load() {
+    try {
+      const data = await api<{ sponsors: Sponsor[] }>("/sponsors");
+      setSponsors(data.sponsors);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load sponsors");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setMsg("");
+    try {
+      await api("/sponsors", { method: "POST", body: { ...form, sort_order: Number(form.sort_order) || 0 } });
+      setMsg("Sponsor added.");
+      setForm({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
+      setOpen(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Create failed");
+    }
+  }
+
+  async function remove(s: Sponsor) {
+    if (!confirm(`Delete sponsor "${s.name}"?`)) return;
+    setError("");
+    try {
+      await api(`/sponsors/${s.id}`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  return (
+    <div className="stack-lg">
+      <div className="split">
+        <FormError>{error}</FormError>
+        <FormSuccess>{msg}</FormSuccess>
+        <span />
+        <button className="btn-primary" onClick={() => setOpen(!open)}>{open ? "Cancel" : "+ Add sponsor"}</button>
+      </div>
+
+      {open && (
+        <form className="card" onSubmit={create} style={{ padding: 24 }}>
+          <div className="form-row">
+            <Field label="Name" required><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
+            <Field label="Logo URL" required><input className="input" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" required /></Field>
+          </div>
+          <div className="form-row">
+            <Field label="Website"><input className="input" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://…" /></Field>
+            <Field label="Sort order"><input className="input" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></Field>
+          </div>
+          <Field label="Description"><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+          <button className="btn-primary btn-sm" type="submit">Add sponsor</button>
+        </form>
+      )}
+
+      <div className="card" style={{ padding: 24 }}>
+        <div className="stack" style={{ gap: 8 }}>
+          {sponsors.map((s) => (
+            <div key={s.id} className="split" style={{ padding: "11px 15px", background: "var(--grey-50)", borderRadius: 10 }}>
+              <div className="cluster" style={{ gap: 12 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {s.logo_url && <img src={s.logo_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain" }} />}
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+              </div>
+              <button className="btn-danger btn-sm" onClick={() => remove(s)}>Delete</button>
+            </div>
+          ))}
+          {sponsors.length === 0 && <p className="card-muted" style={{ textAlign: "center", padding: 12 }}>No sponsors yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ JOIN REQUESTS ============================ */
+function RequestsTab() {
+  const [requests, setRequests] = useState<JoinRequest[]>([]);
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      const data = await api<{ joinRequests: JoinRequest[] }>("/join-requests");
+      setRequests(data.joinRequests);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load requests");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function setStatus(r: JoinRequest, status: JoinRequest["status"]) {
+    setError("");
+    try {
+      await api(`/join-requests/${r.id}`, { method: "PATCH", body: { status } });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Update failed");
+    }
+  }
+
+  const newCount = requests.filter((r) => r.status === "new").length;
+
+  return (
+    <div className="stack-lg">
+      <FormError>{error}</FormError>
+      <div className="split">
+        <p className="card-muted">{requests.length} total · <strong>{newCount} new</strong></p>
+      </div>
+      <div className="stack" style={{ gap: 12 }}>
+        {requests.map((r) => (
+          <div key={r.id} className="card" style={{ padding: 20 }}>
+            <div className="split split-start">
+              <div className="flex-1">
+                <div className="cluster" style={{ gap: 10 }}>
+                  <span style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 15 }}>{r.name}</span>
+                  <Badge variant={r.status === "new" ? "dark" : r.status === "contacted" ? "published" : "completed"}>{r.status}</Badge>
+                </div>
+                <div className="text-mono text-sm text-muted" style={{ marginTop: 4 }}>{r.email}</div>
+                {r.message && <p className="card-muted" style={{ marginTop: 10, lineHeight: 1.6 }}>{r.message}</p>}
+                <div className="text-mono text-sm text-muted" style={{ marginTop: 10 }}>{formatDateTime(r.created_at)}</div>
+              </div>
+              <div className="cluster" style={{ gap: 6 }}>
+                {r.status !== "contacted" && <button className="btn-secondary btn-sm" onClick={() => setStatus(r, "contacted")}>Mark contacted</button>}
+                {r.status !== "closed" && <button className="btn-ghost btn-sm" onClick={() => setStatus(r, "closed")}>Close</button>}
+                {r.status !== "new" && <button className="btn-ghost btn-sm" onClick={() => setStatus(r, "new")}>Reopen</button>}
+              </div>
+            </div>
+          </div>
+        ))}
+        {requests.length === 0 && <EmptyState title="No join requests" body="New requests from the Join page will appear here." />}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ ABOUT PAGE CONTENT ============================ */
+function ContentTab() {
+  const [content, setContent] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api<{ about: { content: string } }>("/about")
+      .then((d) => { setContent(d.about?.content ?? ""); setLoaded(true); })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setMsg("");
+    setBusy(true);
+    try {
+      await api("/about", { method: "PATCH", body: { content } });
+      setMsg("About page updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!loaded) return <Spinner />;
+
+  return (
+    <form className="card" onSubmit={save} style={{ padding: 24 }}>
+      <h3 className="card-title" style={{ fontSize: 17, marginBottom: 8 }}>About page content</h3>
+      <p className="card-muted" style={{ marginBottom: 16 }}>This text appears at the top of the public About page. Plain text (line breaks kept).</p>
+      <FormError>{error}</FormError>
+      <FormSuccess>{msg}</FormSuccess>
+      <textarea className="textarea" style={{ minHeight: 220 }} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write the club's story…" />
+      <div style={{ marginTop: 14 }}>
+        <button className="btn-primary btn-sm" type="submit" disabled={busy}>{busy ? "Saving…" : "Save about page"}</button>
+      </div>
+    </form>
+  );
+}
+
+/* ============================ ADMIN ============================ */
+function AdminTab() {
+  const { user } = useAuth();
+  const [president, setPresident] = useState<PublicUser | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [assignId, setAssignId] = useState("");
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+
+  async function load() {
+    try {
+      const p = await api<{ president: PublicUser | null }>("/president");
+      setPresident(p.president);
+    } catch { /* none */ }
+    try {
+      const u = await api<{ users: AdminUser[] }>("/users");
+      setUsers(u.users);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load users");
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  const coreHeads = users.filter((u) => u.role === "core_head");
+
+  async function assignPresident(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignId) return;
+    setError(""); setMsg("");
+    try {
+      await api("/president", { method: "POST", body: { user_id: Number(assignId) } });
+      setMsg("President updated.");
+      setAssignId("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function removePresident() {
+    if (!confirm("Remove the current President? They keep their Core Head role.")) return;
+    setError(""); setMsg("");
+    try {
+      await api("/president", { method: "DELETE" });
+      setMsg("President removed.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  return (
+    <div className="stack-lg">
+      <FormError>{error}</FormError>
+      <FormSuccess>{msg}</FormSuccess>
+
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 6 }}>President</h3>
+        <p className="card-muted" style={{ marginBottom: 18, lineHeight: 1.6 }}>
+          The President is a Core Head with global core-head permissions across all teams.
+          There can be only one. Assigning a new President automatically removes the title from the previous one.
+        </p>
+        <div className="split" style={{ padding: "14px 16px", background: "var(--grey-50)", borderRadius: 12, marginBottom: 18 }}>
+          <div>
+            <div className="detail-meta-label">Current President</div>
+            <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
+              {president ? president.name : "— none —"}
+            </div>
+            {president && <div className="text-mono text-sm text-muted">{president.email}</div>}
+          </div>
+          {president && <button className="btn-danger btn-sm" onClick={removePresident}>Remove</button>}
+        </div>
+
+        <form onSubmit={assignPresident}>
+          <Field label="Assign President (must be a Core Head)" required>
+            <select className="select" value={assignId} onChange={(e) => setAssignId(e.target.value)} required>
+              <option value="">Select a Core Head…</option>
+              {coreHeads.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+          </Field>
+          <button className="btn-primary btn-sm" type="submit">Assign President</button>
+        </form>
+      </div>
+
+      <div className="card" style={{ padding: 24, background: "var(--grey-50)" }}>
+        <h3 className="card-title" style={{ fontSize: 15, marginBottom: 8 }}>Admin account</h3>
+        <p className="card-muted" style={{ lineHeight: 1.6 }}>
+          Signed in as <strong>{user?.email}</strong>. Admin accounts are seeded directly into the database
+          (they can&apos;t be created through signup). Promote members to Core and Core Head from the{" "}
+          <a href="/members" style={{ textDecoration: "underline" }}>Members</a> page.
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -279,4 +279,28 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
+
+  -- Phase 6: Projects showcase
+  CREATE TABLE IF NOT EXISTS projects (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    tags        TEXT NOT NULL DEFAULT '',
+    category    TEXT NOT NULL DEFAULT 'web'
+                CHECK (category IN ('web','ai','mobile','open-source','other')),
+    status      TEXT NOT NULL DEFAULT 'wip'
+                CHECK (status IN ('shipped','wip','concept')),
+    author_name TEXT NOT NULL DEFAULT '',
+    year        TEXT NOT NULL DEFAULT '',
+    github_url  TEXT,
+    live_url    TEXT,
+    featured    INTEGER NOT NULL DEFAULT 0,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
+  CREATE INDEX IF NOT EXISTS idx_projects_status   ON projects(status);
+  CREATE INDEX IF NOT EXISTS idx_projects_featured ON projects(featured, sort_order);
 `);

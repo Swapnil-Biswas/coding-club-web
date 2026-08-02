@@ -240,3 +240,25 @@ export interface SearchResults {
   users: Pick<PublicUser, "id" | "name" | "email" | "role" | "club_title">[];
   teams: Pick<Team, "id" | "name" | "description">[];
 }
+
+export type ProjectCategory = "web" | "ai" | "mobile" | "open-source" | "other";
+export type ProjectStatus    = "shipped" | "wip" | "concept";
+
+export interface Project {
+  id:           number;
+  title:        string;
+  description:  string;
+  tags:         string[];
+  category:     ProjectCategory;
+  status:       ProjectStatus;
+  author_name:  string;
+  year:         string;
+  github_url:   string | null;
+  live_url:     string | null;
+  featured:     boolean;
+  sort_order:   number;
+  created_by:   number;
+  creator_name: string | null;
+  created_at:   string;
+  updated_at:   string;
+}

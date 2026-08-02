@@ -23,6 +23,7 @@ import { notificationsRouter } from './notifications/routes.js';
 import { analyticsRouter } from './analytics/routes.js';
 import { activityLogRouter } from './activity-log/routes.js';
 import { searchRouter } from './search/routes.js';
+import { projectsRouter } from './projects/routes.js';
 import { HttpError } from './lib/errors.js';
 import { loadUser } from './auth/middleware.js';
 
@@ -69,6 +70,7 @@ app.use('/', attendanceRouter);
 app.use('/events', eventsRouter);
 app.use('/teams', teamsRouter);
 app.use('/gallery', galleryRouter);
+app.use('/', galleryRouter); // /photos routes (POST /photos, PATCH /photos/:id, DELETE /photos/:id)
 app.use('/sponsors', sponsorsRouter);
 app.use('/join-requests', joinRequestsRouter);
 app.use('/about', aboutRouter);
@@ -80,6 +82,7 @@ app.use('/notifications', notificationsRouter);
 app.use('/analytics', analyticsRouter);
 app.use('/activity-log', activityLogRouter);
 app.use('/', searchRouter);
+app.use('/projects', projectsRouter);
 
 
 // 404

@@ -5,31 +5,22 @@ import { ROLES, publicUser, findUserById, changePassword } from '../auth/service
 // The role transition matrix. Every PATCH /users/:id/role request is checked
 // here — and ONLY here. The matrix is the single source of truth.
 //
-// Phase 1 (3 transitions):
-//   - core can promote public -> member
-//   - admin can promote member -> core
-//   - admin can demote core -> member
-//   - everything else is 403
-//
-// Phase 2 additions (the new 'core_head' tier is admin-managed, mirroring how
-// 'core' is admin-managed):
-//   - admin can promote core -> core_head
-//   - admin can demote core_head -> core
-//
-// Notes on choices not in the spec:
-//   - admin can never be assigned via this route. Admins are seeded only.
-//   - admin cannot self-demote (would lock the system out if it was the only admin).
-//   - No public->admin, no member->admin, no public->core, no core->admin, no
-//     member->core_head. Each of these is 403.
-//
-// The matrix is a list of (actorRole, fromRole, toRole) tuples. Any transition
-// not in the list is rejected. Easier to audit than a chain of if/elses.
+// Rules:
+//   - core       : view-only, cannot promote anyone.
+//   - core_head  : can promote member → core only.
+//   - admin      : full control — any from/to combination.
+//                  Hard guard below prevents self-demotion.
+const ROLES_LIST = ['public', 'member', 'core', 'core_head', 'admin'];
+
 const ALLOWED_TRANSITIONS = [
-  { actor: 'core', from: 'public', to: 'member' },
-  { actor: 'admin', from: 'member', to: 'core' },
-  { actor: 'admin', from: 'core', to: 'member' },
-  { actor: 'admin', from: 'core', to: 'core_head' },
-  { actor: 'admin', from: 'core_head', to: 'core' },
+  // core_head: member → core only
+  { actor: 'core_head', from: 'member', to: 'core' },
+  // admin: every possible (from → to) pair
+  ...ROLES_LIST.flatMap((from) =>
+    ROLES_LIST
+      .filter((to) => to !== from)
+      .map((to) => ({ actor: 'admin', from, to })),
+  ),
 ];
 
 export function canTransition(actorRole, fromRole, toRole) {

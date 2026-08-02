@@ -14,6 +14,9 @@ import type {
   PublicUser,
   ClubEvent,
   CertificateTemplate,
+  Project,
+  ProjectCategory,
+  ProjectStatus,
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
 import {
@@ -54,14 +57,15 @@ export default function DashboardPage() {
 }
 
 const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "events", label: "Events" },
-  { id: "teams", label: "Teams" },
+  { id: "overview",  label: "Overview" },
+  { id: "events",    label: "Events" },
+  { id: "teams",     label: "Teams" },
   { id: "certificates", label: "Certificates" },
-  { id: "sponsors", label: "Sponsors" },
-  { id: "requests", label: "Join Requests" },
-  { id: "content", label: "About Page" },
-  { id: "admin", label: "Admin" },
+  { id: "sponsors",  label: "Sponsors" },
+  { id: "requests",  label: "Join Requests" },
+  { id: "content",   label: "About Page" },
+  { id: "projects",  label: "Projects" },
+  { id: "admin",     label: "Admin" },
 ];
 
 function DashboardInner() {
@@ -69,7 +73,9 @@ function DashboardInner() {
   const admin = isAdmin(user);
   const [tab, setTab] = useState("overview");
 
-  const visibleTabs = TABS.filter((t) => (t.id === "admin" ? admin : true));
+  const visibleTabs = TABS.filter((t) =>
+    t.id === "admin" || t.id === "projects" ? admin : true
+  );
 
   return (
     <div className="page">
@@ -88,6 +94,7 @@ function DashboardInner() {
         {tab === "sponsors" && <SponsorsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "content" && <ContentTab />}
+        {tab === "projects" && admin && <ProjectsTab />}
         {tab === "admin" && admin && <AdminTab />}
       </div>
     </div>
@@ -987,6 +994,270 @@ function AdminTab() {
           <a href="/members" style={{ textDecoration: "underline" }}>Members</a> page.
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ============================ PROJECTS (admin) ============================ */
+
+const PROJECT_CATEGORIES: { value: ProjectCategory; label: string }[] = [
+  { value: "web",         label: "Web" },
+  { value: "ai",          label: "AI / ML" },
+  { value: "mobile",      label: "Mobile" },
+  { value: "open-source", label: "Open Source" },
+  { value: "other",       label: "Other" },
+];
+const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
+  { value: "shipped", label: "● Shipped" },
+  { value: "wip",     label: "○ In Progress" },
+  { value: "concept", label: "◇ Concept" },
+];
+
+const EMPTY_FORM = {
+  title: "", description: "", tags: "",
+  category: "web" as ProjectCategory,
+  status: "wip" as ProjectStatus,
+  author_name: "", year: "",
+  github_url: "", live_url: "", featured: false,
+};
+
+function ProjectsTab() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [busy, setBusy]         = useState(false);
+  const [msg, setMsg]           = useState("");
+  const [err, setErr]           = useState("");
+  const [modalOpen, setModalOpen]     = useState(false);
+  const [editing, setEditing]         = useState<Project | null>(null);
+  const [form, setForm]               = useState({ ...EMPTY_FORM });
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [saveBusy, setSaveBusy]       = useState(false);
+
+  async function load() {
+    try {
+      const d = await api<{ projects: Project[] }>("/projects");
+      setProjects(d.projects);
+    } catch { /* silent */ }
+  }
+  useEffect(() => { load(); }, []);
+
+  function openAdd() {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM });
+    setErr(""); setMsg("");
+    setModalOpen(true);
+  }
+  function openEdit(p: Project) {
+    setEditing(p);
+    setForm({
+      title: p.title, description: p.description,
+      tags: p.tags.join(", "),
+      category: p.category, status: p.status,
+      author_name: p.author_name, year: p.year,
+      github_url: p.github_url || "",
+      live_url:   p.live_url   || "",
+      featured: p.featured,
+    });
+    setErr(""); setMsg("");
+    setModalOpen(true);
+  }
+
+  async function save() {
+    setErr("");
+    setSaveBusy(true);
+    try {
+      if (editing) {
+        await api(`/projects/${editing.id}`, { method: "PATCH", body: form });
+        setMsg("Project updated.");
+      } else {
+        await api("/projects", { method: "POST", body: form });
+        setMsg("Project added.");
+      }
+      setModalOpen(false);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function deleteProject(p: Project) {
+    setBusy(true); setErr(""); setMsg(""); setDeleteTarget(null);
+    try {
+      await api(`/projects/${p.id}`, { method: "DELETE" });
+      setMsg(`"${p.title}" deleted.`);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
+    } finally { setBusy(false); }
+  }
+
+  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.value }));
+
+  return (
+    <div className="stack-lg">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Projects Showcase</div>
+          <div style={{ fontSize: 14, color: "var(--grey-600)" }}>{projects.length} project{projects.length !== 1 ? "s" : ""} on the homepage</div>
+        </div>
+        <button className="btn-primary btn-sm" onClick={openAdd}>+ Add Project</button>
+      </div>
+
+      <FormSuccess>{msg}</FormSuccess>
+      <FormError>{err}</FormError>
+
+      {projects.length === 0 ? (
+        <EmptyState title="No projects yet" body="Add your first real project using the button above." />
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Year</th>
+                <th>Featured</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 600 }}>
+                    {p.title}
+                    {(p.github_url || p.live_url) && (
+                      <span style={{ marginLeft: 6, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--grey-400)" }}>
+                        {p.github_url && "GH"}{p.github_url && p.live_url && " · "}{p.live_url && "Live"}
+                      </span>
+                    )}
+                  </td>
+                  <td>{p.author_name}</td>
+                  <td><span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{p.category}</span></td>
+                  <td>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: p.status === "shipped" ? "var(--grey-800)" : "var(--grey-500)" }}>
+                      {p.status === "shipped" ? "● Shipped" : p.status === "wip" ? "○ WIP" : "◇ Concept"}
+                    </span>
+                  </td>
+                  <td>{p.year}</td>
+                  <td>{p.featured ? <Badge variant="dark">Featured</Badge> : <span style={{ color: "var(--grey-400)", fontSize: 12 }}>—</span>}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => openEdit(p)}
+                        style={{ fontFamily: "var(--font-mono)" }}
+                      >Edit</button>
+                      <button
+                        title={`Delete "${p.title}"`}
+                        disabled={busy}
+                        onClick={() => setDeleteTarget(p)}
+                        style={{
+                          background: "none", border: "1.5px solid rgba(192,57,43,0.3)",
+                          borderRadius: 8, padding: "5px 7px", cursor: "pointer",
+                          color: "#c0392b", display: "inline-flex", alignItems: "center",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(192,57,43,0.08)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add / Edit modal */}
+      {modalOpen && (
+        <Modal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          title={editing ? "Edit Project" : "Add Project"}
+          eyebrow="// Projects"
+        >
+          <div className="stack">
+            <FormError>{err}</FormError>
+            <Field label="Title" required>
+              <input className="input" value={form.title} onChange={f("title")} placeholder="My awesome project" required />
+            </Field>
+            <Field label="Description">
+              <textarea className="input" value={form.description} onChange={f("description")} rows={3} placeholder="What does it do?" style={{ resize: "vertical" }} />
+            </Field>
+            <Field label="Tags" hint="Comma-separated — e.g. React, Node.js, SQLite">
+              <input className="input" value={form.tags} onChange={f("tags")} placeholder="React, TypeScript, Tailwind" />
+            </Field>
+            <div className="form-row">
+              <Field label="Category" required>
+                <select className="select" value={form.category} onChange={f("category")}>
+                  {PROJECT_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Status" required>
+                <select className="select" value={form.status} onChange={f("status")}>
+                  {PROJECT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="form-row">
+              <Field label="Author / Team">
+                <input className="input" value={form.author_name} onChange={f("author_name")} placeholder="Swapnil B." />
+              </Field>
+              <Field label="Year">
+                <input className="input" value={form.year} onChange={f("year")} placeholder="2024" maxLength={4} />
+              </Field>
+            </div>
+            <Field label="GitHub URL" hint="Optional">
+              <input className="input" value={form.github_url} onChange={f("github_url")} placeholder="https://github.com/..." />
+            </Field>
+            <Field label="Live URL" hint="Optional">
+              <input className="input" value={form.live_url} onChange={f("live_url")} placeholder="https://..." />
+            </Field>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "var(--grey-700)" }}>
+              <input
+                type="checkbox"
+                checked={form.featured}
+                onChange={(e) => setForm((p) => ({ ...p, featured: e.target.checked }))}
+              />
+              Feature this project (pin to top)
+            </label>
+            <button className="btn-primary btn-block" onClick={save} disabled={saveBusy}>
+              {saveBusy ? "Saving…" : editing ? "Save changes" : "Add project"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b", fontSize: 22 }}>⚠</div>
+            </div>
+            <h2 className="modal-title" style={{ textAlign: "center", fontSize: 20, marginBottom: 8 }}>Delete project?</h2>
+            <p className="modal-sub" style={{ textAlign: "center", marginBottom: 20 }}>
+              <strong>{deleteTarget.title}</strong> will be permanently removed from the site.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-secondary btn-block" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn-danger btn-block" style={{ fontWeight: 700 }} onClick={() => deleteProject(deleteTarget)}>Yes, delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

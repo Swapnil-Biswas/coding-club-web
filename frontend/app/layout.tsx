@@ -6,6 +6,7 @@ import { AuthProvider } from "./lib/auth";
 import SiteHeader from "./components/app/SiteHeader";
 import AuthModal from "./components/app/AuthModal";
 import Footer from "./components/Footer";
+import GrayscaleTouch from "./components/app/GrayscaleTouch";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -29,6 +30,10 @@ export const metadata: Metadata = {
     "hackathon",
     "open source",
   ],
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -44,6 +49,7 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <SiteHeader />
+          <GrayscaleTouch />
           {children}
           <Footer />
           <AuthModal />

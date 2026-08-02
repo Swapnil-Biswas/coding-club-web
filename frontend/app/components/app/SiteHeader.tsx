@@ -166,17 +166,16 @@ function AccountMenu() {
           </Link>
 
           {(corePlus || coreHeadPlus) && <div className="dropdown-sep" />}
+          {/* Members: visible to everyone (member role and above) */}
+          <Link href="/members" className="dropdown-item" onClick={() => setOpen(false)}>
+            <MenuIcon path="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" extra={<><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>} />
+            Members
+          </Link>
           {corePlus && <div className="dropdown-section">Manage</div>}
           {corePlus && (
             <Link href="/checkin" className="dropdown-item" onClick={() => setOpen(false)}>
               <MenuIcon path="M9 11l3 3L22 4" extra={<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />} />
               Check-in scanner
-            </Link>
-          )}
-          {corePlus && (
-            <Link href="/members" className="dropdown-item" onClick={() => setOpen(false)}>
-              <MenuIcon path="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" extra={<><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>} />
-              Members
             </Link>
           )}
           {coreHeadPlus && (

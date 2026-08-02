@@ -1,89 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RevealOnScroll from "./RevealOnScroll";
 import GlyphDivider from "./GlyphDivider";
+import type { Project, ProjectCategory } from "@/app/lib/types";
 
-type Category = "all" | "web" | "ai" | "mobile" | "open-source";
-
-interface Project {
-  title: string;
-  desc: string;
-  tags: string[];
-  category: Exclude<Category, "all">;
-  author: string;
-  year: string;
-  status: "shipped" | "wip" | "concept";
-}
-
-const projects: Project[] = [
-  {
-    title: "GlyphOS",
-    desc: "A keyboard-first launcher inspired by the Nothing aesthetic. Search apps, run scripts, control your machine — all from a single monochrome prompt.",
-    tags: ["Tauri", "Rust", "TypeScript"],
-    category: "open-source",
-    author: "Anika R.",
-    year: "2026",
-    status: "shipped",
-  },
-  {
-    title: "Borealis",
-    desc: "Real-time focus tracker. Watches your screen, logs your app switches, and shows you a beautiful monochrome timeline of where your day actually went.",
-    tags: ["Electron", "SQLite", "D3"],
-    category: "web",
-    author: "Rohan M.",
-    year: "2026",
-    status: "shipped",
-  },
-  {
-    title: "Loom.",
-    desc: "A note-taking app that treats your ideas like a thread. Drag, drop, link, and watch your second brain weave itself together.",
-    tags: ["Next.js", "Edge", "PG"],
-    category: "web",
-    author: "Diya S.",
-    year: "2026",
-    status: "wip",
-  },
-  {
-    title: "Pulse",
-    desc: "Tiny on-device LLM helper. Summarizes long threads, drafts replies, and never sends a single byte to the cloud.",
-    tags: ["PyTorch", "GGUF", "Swift"],
-    category: "ai",
-    author: "Karthik V.",
-    year: "2026",
-    status: "wip",
-  },
-  {
-    title: "Hex",
-    desc: "A monochrome habit tracker that feels like a piece of industrial design. No streaks, no shame, no neon — just dots and progress.",
-    tags: ["React Native", "Reanimated"],
-    category: "mobile",
-    author: "Maya P.",
-    year: "2025",
-    status: "shipped",
-  },
-  {
-    title: "argv.",
-    desc: "CLI that turns long English sentences into safe shell commands. Powered by a fine-tuned 1B model that runs on your laptop.",
-    tags: ["Python", "llama.cpp"],
-    category: "ai",
-    author: "Arjun N.",
-    year: "2025",
-    status: "concept",
-  },
-];
-
-const categories: { key: Category; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "web", label: "Web" },
-  { key: "ai", label: "AI / ML" },
-  { key: "mobile", label: "Mobile" },
+const CATEGORIES: { key: ProjectCategory | "all"; label: string }[] = [
+  { key: "all",         label: "All" },
+  { key: "web",         label: "Web" },
+  { key: "ai",          label: "AI / ML" },
+  { key: "mobile",      label: "Mobile" },
   { key: "open-source", label: "Open Source" },
+  { key: "other",       label: "Other" },
 ];
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export default function Projects() {
-  const [filter, setFilter] = useState<Category>("all");
-  const filtered = filter === "all" ? projects : projects.filter((p) => p.category === filter);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState<ProjectCategory | "all">("all");
+
+  useEffect(() => {
+    fetch(`${API_BASE}/projects`)
+      .then((r) => r.json())
+      .then((d) => setProjects(d.projects || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered =
+    filter === "all"
+      ? projects
+      : projects.filter((p) => p.category === filter);
+
+  // Hide the section entirely when there are no projects yet
+  if (!loading && projects.length === 0) return null;
 
   return (
     <section className="projects" id="projects">
@@ -96,14 +49,18 @@ export default function Projects() {
             <span className="projects-heading-ghost">tutorials.</span>
           </h2>
           <p className="section-body projects-sub">
-            Every project below started as a Saturday afternoon and an unreasonable
-            amount of coffee. Browse, fork, build on top.
+            Every project below started as a Saturday afternoon and an
+            unreasonable amount of coffee. Browse, fork, build on top.
           </p>
         </RevealOnScroll>
 
         <RevealOnScroll delay={120}>
           <div className="projects-filters" role="tablist">
-            {categories.map((c) => (
+            {CATEGORIES.filter((c) =>
+              c.key === "all"
+                ? true
+                : projects.some((p) => p.category === c.key),
+            ).map((c) => (
               <button
                 key={c.key}
                 role="tab"
@@ -121,34 +78,82 @@ export default function Projects() {
 
         <GlyphDivider variant="compact" />
 
-        <div className="projects-grid">
-          {filtered.map((p, i) => (
-            <RevealOnScroll key={p.title} delay={i * 70}>
-              <article className="project-card">
-                <div className="project-card-top">
-                  <div className="project-dots" aria-hidden="true">
-                    <span /><span /><span />
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--grey-400)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+            Loading projects…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--grey-400)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+            No projects in this category yet.
+          </div>
+        ) : (
+          <div className="projects-grid">
+            {filtered.map((p, i) => (
+              <RevealOnScroll key={p.id} delay={i * 70}>
+                <article className="project-card">
+                  <div className="project-card-top">
+                    <div className="project-dots" aria-hidden="true">
+                      <span /><span /><span />
+                    </div>
+                    <span className={`project-status status-${p.status}`}>
+                      {p.status === "shipped"
+                        ? "● Shipped"
+                        : p.status === "wip"
+                        ? "○ In progress"
+                        : "◇ Concept"}
+                    </span>
                   </div>
-                  <span className={`project-status status-${p.status}`}>
-                    {p.status === "shipped" ? "● Shipped" : p.status === "wip" ? "○ In progress" : "◇ Concept"}
-                  </span>
-                </div>
-                <h3 className="project-title">{p.title}</h3>
-                <p className="project-desc">{p.desc}</p>
-                <div className="project-tags">
-                  {p.tags.map((t) => (
-                    <span key={t} className="project-tag">{t}</span>
-                  ))}
-                </div>
-                <div className="project-foot">
-                  <span className="project-author">{p.author}</span>
-                  <span className="project-year">{p.year}</span>
-                </div>
-                <div className="project-shimmer" aria-hidden="true" />
-              </article>
-            </RevealOnScroll>
-          ))}
-        </div>
+
+                  <h3 className="project-title">{p.title}</h3>
+                  <p className="project-desc">{p.description}</p>
+
+                  <div className="project-tags">
+                    {p.tags.map((t) => (
+                      <span key={t} className="project-tag">{t}</span>
+                    ))}
+                  </div>
+
+                  <div className="project-foot">
+                    <span className="project-author">{p.author_name}</span>
+                    <span className="project-year">{p.year}</span>
+                  </div>
+
+                  {/* Links */}
+                  {(p.github_url || p.live_url) && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      {p.github_url && (
+                        <a
+                          href={p.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-ghost"
+                          style={{ fontSize: 11, padding: "5px 12px" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          GitHub ↗
+                        </a>
+                      )}
+                      {p.live_url && (
+                        <a
+                          href={p.live_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-ghost"
+                          style={{ fontSize: 11, padding: "5px 12px" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Live ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="project-shimmer" aria-hidden="true" />
+                </article>
+              </RevealOnScroll>
+            ))}
+          </div>
+        )}
 
         <RevealOnScroll delay={200}>
           <div className="projects-more">

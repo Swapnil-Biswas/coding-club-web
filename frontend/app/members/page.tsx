@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
-import { isCorePlus, isAdmin } from "@/app/lib/roles";
+import { isAdmin } from "@/app/lib/roles";
 import type { AdminUser, PublicUser, Role } from "@/app/lib/types";
 import { formatDate } from "@/app/lib/format";
 import {
@@ -26,17 +26,10 @@ export default function MembersPage() {
       <div className="page"><div className="section-inner"><Spinner /></div></div>
     );
   }
-  if (!user) {
+  if (!user || user.role === 'public') {
     return (
       <div className="page"><div className="section-inner">
-        <EmptyState title="Sign in required" body="The members panel is only visible to Core and above." action={<button className="btn-primary" onClick={() => openAuth("login")}>Sign in</button>} />
-      </div></div>
-    );
-  }
-  if (!isCorePlus(user)) {
-    return (
-      <div className="page"><div className="section-inner">
-        <EmptyState title="Core & above only" body="You need to be a Core member to view the members panel." />
+        <EmptyState title="Sign in required" body="The members panel is visible to all club members." action={<button className="btn-primary" onClick={() => openAuth("login")}>Sign in</button>} />
       </div></div>
     );
   }
@@ -52,9 +45,10 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
   const [actionMsg, setActionMsg] = useState("");
   const [actionErr, setActionErr] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
   const admin = isAdmin(viewer);
-  const core = viewer.role === "core" || admin; // core (and admin) can promote public→member
+  const coreHead = viewer.role === 'core_head' || admin; // core_head can promote member→core
 
   async function load() {
     try {
@@ -83,6 +77,22 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
     }
   }
 
+  async function deleteUser(target: AdminUser) {
+    setActionErr("");
+    setActionMsg("");
+    setBusyId(target.id);
+    setDeleteTarget(null);
+    try {
+      await api(`/users/${target.id}`, { method: "DELETE" });
+      setActionMsg(`${target.name}'s account has been deleted.`);
+      await load();
+    } catch (err) {
+      setActionErr(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: users?.length || 0 };
     for (const r of ROLE_ORDER) c[r] = 0;
@@ -106,7 +116,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
           eyebrow="// Members"
           title="People &"
           ghost="roles."
-          sub={admin ? "Promote, demote, and manage every account." : "Verified members and club hierarchy. Core can promote public → member."}
+          sub={admin ? "Promote, demote, and manage every account." : coreHead ? "Core Heads can promote Members to Core." : "View all club members and their roles."}
           actions={
             <input
               className="input"
@@ -156,11 +166,13 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                     <td className="text-sm text-muted">{formatDate(u.created_at)}</td>
                     <td>
                       <div className="table-actions">
-                        {core && u.role === "public" && (
-                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
-                            → Member
+                        {/* core_head: member → core only */}
+                        {coreHead && !admin && u.role === "member" && (
+                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
+                            → Core
                           </ActionButton>
                         )}
+                        {/* admin: full control */}
                         {admin && u.role === "member" && (
                           <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
                             → Core
@@ -177,9 +189,49 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                           </>
                         )}
                         {admin && u.role === "core_head" && (
-                          <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
-                            → Core
+                          <>
+                            <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "admin")}>
+                              → Admin
+                            </ActionButton>
+                            <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
+                              → Core
+                            </ActionButton>
+                          </>
+                        )}
+                        {admin && u.role === "admin" && u.id !== viewer.id && (
+                          <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
+                            → Core Head
                           </ActionButton>
+                        )}
+                        {/* Delete — admin only, never yourself */}
+                        {admin && u.id !== viewer.id && (
+                          <button
+                            title={`Delete ${u.name}'s account`}
+                            disabled={busyId === u.id}
+                            onClick={() => setDeleteTarget(u)}
+                            style={{
+                              background: "none",
+                              border: "1.5px solid rgba(192,57,43,0.3)",
+                              borderRadius: 8,
+                              padding: "5px 7px",
+                              cursor: "pointer",
+                              color: "#c0392b",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              opacity: busyId === u.id ? 0.4 : 1,
+                              transition: "background 0.15s, border-color 0.15s",
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(192,57,43,0.08)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -193,6 +245,16 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
           </div>
         )}
       </div>
+
+      {/* Confirmation dialog */}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          user={deleteTarget}
+          busy={busyId === deleteTarget.id}
+          onConfirm={() => deleteUser(deleteTarget)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -217,5 +279,89 @@ function ActionButton({
     >
       {busy ? "…" : children}
     </button>
+  );
+}
+
+function ConfirmDeleteModal({
+  user,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  user: AdminUser;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div
+        className="modal"
+        style={{ maxWidth: 420 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Warning icon */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "rgba(192,57,43,0.1)",
+              color: "#c0392b",
+              fontSize: 24,
+            }}
+          >
+            ⚠
+          </div>
+        </div>
+
+        <h2
+          className="modal-title"
+          style={{ textAlign: "center", fontSize: 22, marginBottom: 8 }}
+        >
+          Delete account?
+        </h2>
+        <p
+          className="modal-sub"
+          style={{ textAlign: "center", marginBottom: 20 }}
+        >
+          This will permanently delete{" "}
+          <strong style={{ color: "var(--grey-900)" }}>{user.name}</strong>
+          &apos;s account{" "}
+          <span
+            className="text-mono"
+            style={{ fontSize: 12, color: "var(--grey-500)" }}
+          >
+            ({user.email})
+          </span>
+          .<br />
+          <span style={{ color: "#c0392b", fontWeight: 600 }}>
+            This cannot be undone.
+          </span>
+        </p>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            className="btn-secondary btn-block"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn-danger btn-block"
+            onClick={onConfirm}
+            disabled={busy}
+            style={{ fontWeight: 700 }}
+          >
+            {busy ? "Deleting…" : "Yes, delete"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -59,6 +59,36 @@ body {
   overflow-x: hidden;
 }
 
+/* ===== Grayscale image effect =====
+   All <img> tags are desaturated by default.
+   Hover (desktop) or .img-colored class (mobile tap) restores full colour.
+   Gallery grid photos (.gallery-grid img) are always full colour.
+   ===================================== */
+img {
+  filter: grayscale(100%);
+  transition: filter 0.45s ease;
+}
+/* Desktop hover restores colour */
+@media (hover: hover) {
+  img:hover {
+    filter: none;
+  }
+}
+/* Mobile tap — class toggled by GrayscaleTouch component */
+img.img-colored {
+  filter: none !important;
+}
+/* Gallery photos always stay in full colour */
+.gallery-grid img {
+  filter: none !important;
+  transition: none;
+}
+/* Avatar images follow their container's hover state */
+.account-trigger:hover .avatar img,
+.account-trigger:focus .avatar img {
+  filter: none;
+}
+
 ::selection {
   background: var(--grey-800);
   color: var(--white);
@@ -2267,7 +2297,7 @@ a {
   .hero-strip { display: none; }
   .hero-tagline { font-size: 15px; }
   .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; }
-  .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+  .hero-actions .btn-primary, .hero-actions .btn-secondary { width: 100%; justify-content: center; }
   .hero-scroll { left: 20px; }
   .stats-bar { flex-direction: row; gap: 24px; flex-wrap: wrap; padding: 32px 20px; }
   .stat-number { font-size: 36px; }
@@ -2654,6 +2684,10 @@ a {
   .sponsor-grid { grid-template-columns: repeat(2, 1fr); }
   .detail-meta { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 900px) {
+  /* Hide the name label next to the avatar — leaves just the avatar + chevron */
+  .account-name { display: none; }
+}
 @media (max-width: 768px) {
   .section-inner { padding: 48px 20px; }
   .page-title { font-size: 32px; }
@@ -2661,6 +2695,49 @@ a {
   .form-row { grid-template-columns: 1fr; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .detail-meta { grid-template-columns: 1fr; }
-  .modal { padding: 26px 22px; }
-  .account-name { display: none; }
+
+  /* Modal: taller max-height, less padding, so it doesn't clip on phone */
+  .modal {
+    padding: 26px 20px;
+    max-height: 92vh;
+    border-radius: 16px;
+  }
+
+  /* Dropdown: pin to viewport edges so it never overflows */
+  .dropdown {
+    position: fixed;
+    top: var(--header-height);
+    left: 12px;
+    right: 12px;
+    min-width: unset;
+    width: auto;
+    border-radius: 14px;
+  }
 }
+@media (max-width: 480px) {
+  .section-inner { padding: 40px 16px; }
+  .page-title { font-size: 26px; }
+  .page-sub { font-size: 14px; }
+
+  /* Modal goes nearly full-screen on tiny phones */
+  .modal-overlay { padding: 12px; align-items: flex-end; }
+  .modal {
+    padding: 24px 18px;
+    border-radius: 20px 20px 12px 12px;
+    max-height: 94vh;
+  }
+  .modal-title { font-size: 22px; }
+
+  /* Dropdown: full-width sheet from top on tiny phones */
+  .dropdown {
+    left: 8px;
+    right: 8px;
+  }
+
+  /* Table action buttons: stack vertically on tiny screens */
+  .table-actions { flex-direction: column; align-items: flex-end; }
+
+  /* Prevent stat-grid from being 2-col on tiny phones */
+  .stat-grid { grid-template-columns: 1fr; }
+}
+

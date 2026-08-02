@@ -56,12 +56,15 @@ export async function signup({ name, email, password }) {
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const defaultRole = normalizedEmail.endsWith('@bmsit.in') ? 'member' : 'public';
+
   const result = db
     .prepare(
       `INSERT INTO users (name, email, password_hash, role, email_verified)
-       VALUES (?, ?, ?, 'public', 0)`,
+       VALUES (?, ?, ?, ?, 0)`,
     )
-    .run(name, String(email).toLowerCase().trim(), passwordHash);
+    .run(name, normalizedEmail, passwordHash, defaultRole);
 
   const userId = result.lastInsertRowid;
   await issueVerificationCode(userId, email);

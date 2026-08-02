@@ -1,0 +1,269 @@
+// This schema is used ONLY for Prisma Studio (database browser).
+// The app itself uses better-sqlite3 directly — do NOT run `prisma migrate`.
+// To open the DB browser: npx prisma studio
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model users {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  email              String   @unique
+  password_hash      String
+  role               String   @default("public")
+  email_verified     Int      @default(0)
+  created_at         String   @default("")
+  promoted_by        Int?
+  promoted_at        String?
+  profile_photo_path String?
+  club_title         String?
+
+  promoter               users?                  @relation("UserPromoter", fields: [promoted_by], references: [id])
+  promoted_users         users[]                 @relation("UserPromoter")
+  sessions               sessions[]
+  email_verifications    email_verifications[]
+  events_organized       events[]                @relation("EventOrganizer")
+  registrants_checked_in event_registrants[]     @relation("CheckedInBy")
+  team_owner             teams[]
+  team_memberships       team_members[]
+  photos_uploaded        photos[]
+  about_updates          about_page[]
+  certificates_generated certificates[]          @relation("CertGenerator")
+  certificate_templates  certificate_templates[]
+  leaderboards_updated   leaderboards[]          @relation("LeaderboardUpdater")
+  announcements_posted   announcements[]
+  activity_logs          activity_logs[]
+  notifications          notifications[]
+}
+
+model sessions {
+  id         String @id
+  user_id    Int
+  created_at String @default("")
+  expires_at String
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model email_verifications {
+  id          Int     @id @default(autoincrement())
+  user_id     Int
+  code_hash   String
+  expires_at  String
+  consumed_at String?
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model events {
+  id                Int     @id @default(autoincrement())
+  title             String
+  description       String  @default("")
+  banner_image_path String?
+  start_datetime    String
+  end_datetime      String
+  venue             String  @default("")
+  category          String  @default("")
+  visibility        String  @default("public")
+  status            String  @default("draft")
+  unstop_link       String?
+  organizer_id      Int
+  created_at        String  @default("")
+  updated_at        String  @default("")
+
+  organizer     users               @relation("EventOrganizer", fields: [organizer_id], references: [id], onDelete: Restrict)
+  registrants   event_registrants[]
+  history       event_history?
+  leaderboards  leaderboards[]
+  announcements announcements[]
+  certificates  certificates[]
+  photos        photos[]
+}
+
+model event_registrants {
+  id            Int     @id @default(autoincrement())
+  event_id      Int
+  user_id       Int?
+  name          String
+  email         String
+  team_name     String  @default("")
+  qr_code_token String  @unique
+  checked_in    Int     @default(0)
+  checked_in_at String?
+  checked_in_by Int?
+  created_at    String  @default("")
+
+  event        events         @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  checker      users?         @relation("CheckedInBy", fields: [checked_in_by], references: [id], onDelete: SetNull)
+  certificates certificates[]
+
+  @@unique([event_id, email])
+}
+
+model teams {
+  id                 Int     @id @default(autoincrement())
+  name               String  @unique
+  description        String  @default("")
+  logo_url           String?
+  owner_core_head_id Int
+  created_at         String  @default("")
+  updated_at         String  @default("")
+
+  owner   users          @relation(fields: [owner_core_head_id], references: [id], onDelete: Restrict)
+  members team_members[]
+}
+
+model team_members {
+  id            Int    @id @default(autoincrement())
+  team_id       Int
+  user_id       Int
+  designation   String @default("")
+  display_order Int    @default(0)
+  joined_at     String @default("")
+
+  team teams @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+}
+
+model photos {
+  id          Int     @id @default(autoincrement())
+  uploaded_by Int
+  event_id    Int?
+  image_url   String
+  caption     String  @default("")
+  is_featured Int     @default(0)
+  sort_order  Int     @default(0)
+  created_at  String  @default("")
+
+  uploader users   @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+  event    events? @relation(fields: [event_id], references: [id], onDelete: SetNull)
+}
+
+model event_history {
+  event_id   Int    @id
+  gist       String @default("")
+  winners    String @default("")
+  created_at String @default("")
+  updated_at String @default("")
+
+  event events @relation(fields: [event_id], references: [id], onDelete: Cascade)
+}
+
+model sponsors {
+  id          Int     @id @default(autoincrement())
+  name        String
+  logo_url    String
+  website     String?
+  description String  @default("")
+  sort_order  Int     @default(0)
+}
+
+model join_requests {
+  id         Int    @id @default(autoincrement())
+  name       String
+  email      String
+  message    String @default("")
+  status     String @default("new")
+  notes      String @default("")
+  created_at String @default("")
+  updated_at String @default("")
+}
+
+model about_page {
+  id         Int    @id
+  content    String @default("")
+  updated_at String @default("")
+  updated_by Int?
+
+  updater users? @relation(fields: [updated_by], references: [id], onDelete: SetNull)
+}
+
+model certificate_templates {
+  id            Int     @id @default(autoincrement())
+  name          String
+  preview_image String?
+  template_file String
+  created_by    Int
+  created_at    String  @default("")
+
+  creator      users          @relation(fields: [created_by], references: [id], onDelete: Restrict)
+  certificates certificates[]
+}
+
+model certificates {
+  id               Int     @id @default(autoincrement())
+  registrant_id    Int
+  event_id         Int
+  verification_id  String  @unique
+  certificate_type String
+  template_id      Int?
+  generated_by     Int
+  generated_at     String  @default("")
+  pdf_url          String?
+  emailed_at       String?
+  email_status     String  @default("pending")
+
+  registrant event_registrants      @relation(fields: [registrant_id], references: [id], onDelete: Cascade)
+  event      events                 @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  template   certificate_templates? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  generator  users                  @relation("CertGenerator", fields: [generated_by], references: [id], onDelete: Restrict)
+
+  @@unique([registrant_id, certificate_type])
+}
+
+model leaderboards {
+  id         Int    @id @default(autoincrement())
+  event_id   Int
+  team_name  String
+  score      Int    @default(0)
+  rank       Int    @default(0)
+  updated_by Int
+  updated_at String @default("")
+
+  event   events @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  updater users  @relation("LeaderboardUpdater", fields: [updated_by], references: [id], onDelete: Restrict)
+
+  @@unique([event_id, team_name])
+}
+
+model announcements {
+  id        Int    @id @default(autoincrement())
+  event_id  Int
+  message   String
+  posted_by Int
+  posted_at String @default("")
+
+  event  events @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  poster users  @relation(fields: [posted_by], references: [id], onDelete: Restrict)
+}
+
+model activity_logs {
+  id        Int     @id @default(autoincrement())
+  user_id   Int?
+  action    String
+  entity    String
+  entity_id Int?
+  details   String?
+  timestamp String  @default("")
+
+  user users? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+}
+
+model notifications {
+  id         Int     @id @default(autoincrement())
+  user_id    Int
+  type       String
+  message    String
+  link       String?
+  is_read    Int     @default(0)
+  created_at String  @default("")
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}

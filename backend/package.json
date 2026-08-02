@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "seed:admin": "node scripts/seed-admin.js"
+    "dev": "node --watch-path=src src/index.js",
+    "seed:admin": "node scripts/seed-admin.js",
+    "studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^7.9.1",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.5.0",
     "cookie-parser": "^1.4.7",
@@ -19,6 +21,10 @@
     "nodemailer": "^9.0.3",
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
+    "resend": "^6.18.1",
     "uuid": "^14.0.1"
+  },
+  "devDependencies": {
+    "prisma": "^7.9.1"
   }
 }

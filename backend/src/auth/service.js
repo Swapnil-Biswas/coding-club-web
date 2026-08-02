@@ -9,14 +9,12 @@ const SESSION_TTL_DAYS = 30;
 
 export const ROLES = ['public', 'member', 'core', 'core_head', 'admin'];
 
-function allowedDomain() {
-  return (process.env.ALLOWED_EMAIL_DOMAIN || '@example.edu').toLowerCase();
-}
-
 export function emailDomainIsAllowed(email) {
   const e = String(email || '').toLowerCase().trim();
-  const d = allowedDomain();
-  return e.endsWith(d);
+  const domains = (process.env.ALLOWED_EMAIL_DOMAIN || '@example.edu')
+    .split(',')
+    .map(d => d.trim().toLowerCase());
+  return domains.some(d => e.endsWith(d));
 }
 
 function findUserByEmail(email) {
@@ -66,7 +64,7 @@ export async function signup({ name, email, password }) {
     .run(name, String(email).toLowerCase().trim(), passwordHash);
 
   const userId = result.lastInsertRowid;
-  issueVerificationCode(userId, email);
+  await issueVerificationCode(userId, email);
 
   return { id: userId, email };
 }

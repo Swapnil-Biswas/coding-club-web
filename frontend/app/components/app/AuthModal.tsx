@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useAuth, type AuthView } from "@/app/lib/auth";
 import { Modal, Field, FormError, FormSuccess } from "./ui";
 
-const EMAIL_DOMAIN = "@bmsit.in";
+const EMAIL_DOMAIN = "@gmail.com"; // TEMP: revert to "@bmsit.in" after testing
 
 export default function AuthModal() {
   const {

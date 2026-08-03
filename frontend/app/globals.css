@@ -150,6 +150,11 @@ a {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
 @keyframes drawLine {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
@@ -2427,6 +2432,7 @@ a {
 .role-core, .role-core_head { background: var(--grey-800); color: var(--white); border-color: var(--grey-800); }
 .role-admin { background: var(--grey-900); color: var(--white); border-color: var(--grey-900); }
 .role-member { background: var(--grey-100); color: var(--grey-700); border-color: var(--grey-200); }
+.role-faculty { background: rgba(180,120,0,0.12); color: #a07800; border-color: rgba(180,120,0,0.3); }
 
 /* ----- Cards ----- */
 .card {
@@ -2741,3 +2747,135 @@ a {
   .stat-grid { grid-template-columns: 1fr; }
 }
 
+/* ====================================================================
+   MENTORS — Phase 7
+   ==================================================================== */
+
+.mentors-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 8px;
+}
+
+@media (max-width: 1024px) {
+  .mentors-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .mentors-grid { grid-template-columns: 1fr; }
+}
+
+.mentor-card {
+  background: var(--grey-50);
+  border: 1px solid var(--grey-200);
+  border-radius: 14px;
+  padding: 24px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.mentor-card:hover {
+  border-color: var(--grey-400);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
+/* Avatar */
+.mentor-avatar-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, var(--grey-400), var(--grey-200));
+  flex-shrink: 0;
+}
+.mentor-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: var(--grey-100);
+}
+.mentor-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--grey-200);
+  color: var(--grey-600);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* Body */
+.mentor-body { width: 100%; }
+
+.mentor-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--grey-900);
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.mentor-role {
+  font-size: 13px;
+  color: var(--grey-600);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.mentor-role-sep { color: var(--grey-400); }
+.mentor-org {
+  font-weight: 600;
+  color: var(--grey-700);
+}
+
+.mentor-bio {
+  font-size: 13px;
+  color: var(--grey-500);
+  line-height: 1.65;
+  margin: 0 0 16px;
+}
+
+/* Contact-tier links */
+.mentor-contact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--grey-200);
+}
+
+.mentor-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--grey-200);
+  background: var(--white);
+  color: var(--grey-600);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.mentor-contact-link:hover {
+  border-color: var(--grey-400);
+  background: var(--grey-50);
+  color: var(--grey-900);
+}
+.mentor-contact-wa:hover {
+  border-color: #25d366;
+  color: #128c4a;
+  background: rgba(37,211,102,0.05);
+}

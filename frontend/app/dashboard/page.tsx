@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
-import { isCoreHeadPlus, isAdmin, isPresident } from "@/app/lib/roles";
+import { isCoreHeadPlus, isAdmin, isPresident, isFaculty } from "@/app/lib/roles";
 import type {
   AnalyticsOverview,
   ActivityLogEntry,
@@ -17,6 +17,7 @@ import type {
   Project,
   ProjectCategory,
   ProjectStatus,
+  Mentor,
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
 import {
@@ -45,12 +46,17 @@ export default function DashboardPage() {
       </div></div>
     );
   }
-  if (!isCoreHeadPlus(user)) {
+  if (!isCoreHeadPlus(user) && !isFaculty(user)) {
     return (
       <div className="page"><div className="section-inner">
         <EmptyState title="Core Head access only" body="You need to be a Core Head, the President, or an admin to open the dashboard." />
       </div></div>
     );
+  }
+
+  // Faculty get a read-only analytics view — no management controls.
+  if (isFaculty(user)) {
+    return <FacultyAnalyticsView />;
   }
 
   return <DashboardInner />;
@@ -65,8 +71,45 @@ const TABS = [
   { id: "requests",  label: "Join Requests" },
   { id: "content",   label: "About Page" },
   { id: "projects",  label: "Projects" },
+  { id: "mentors",   label: "Mentors" },
   { id: "admin",     label: "Admin" },
 ];
+
+/** Faculty see only the analytics overview — no management controls. */
+function FacultyAnalyticsView() {
+  return (
+    <div className="page">
+      <div className="section-inner section-inner-wide">
+        <PageHeader
+          eyebrow="// Faculty Observer"
+          title="Analytics"
+          ghost="overview."
+          sub="You have read-only access to the club's analytics and event data."
+        />
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 24,
+            padding: "8px 14px",
+            borderRadius: 8,
+            background: "rgba(180,120,0,0.08)",
+            border: "1px solid rgba(180,120,0,0.2)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "#a07800",
+            letterSpacing: "0.07em",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a07800", display: "inline-block" }} />
+          FACULTY OBSERVER — READ-ONLY ACCESS
+        </div>
+        <OverviewTab />
+      </div>
+    </div>
+  );
+}
 
 function DashboardInner() {
   const { user } = useAuth();
@@ -95,6 +138,7 @@ function DashboardInner() {
         {tab === "requests" && <RequestsTab />}
         {tab === "content" && <ContentTab />}
         {tab === "projects" && admin && <ProjectsTab />}
+        {tab === "mentors"  && admin && <MentorsTab />}
         {tab === "admin" && admin && <AdminTab />}
       </div>
     </div>
@@ -207,6 +251,308 @@ function OverviewTab() {
   );
 }
 
+/* ============================ MENTORS ============================ */
+
+const EMPTY_MENTOR_FORM = {
+  name: "",
+  photo_url: "",
+  bio: "",
+  current_role: "",
+  organization: "",
+  linkedin_url: "",
+  github_url: "",
+  whatsapp_number: "",
+  is_active: true,
+  sort_order: 0,
+};
+
+function MentorsTab() {
+  const [mentors, setMentors]       = useState<Mentor[]>([]);
+  const [busy, setBusy]             = useState(false);
+  const [msg, setMsg]               = useState("");
+  const [err, setErr]               = useState("");
+  const [modalOpen, setModalOpen]   = useState(false);
+  const [editing, setEditing]       = useState<Mentor | null>(null);
+  const [form, setForm]             = useState({ ...EMPTY_MENTOR_FORM });
+  const [saveBusy, setSaveBusy]     = useState(false);
+  const [deactivateTarget, setDeactivateTarget] = useState<Mentor | null>(null);
+
+  async function load() {
+    try {
+      const d = await api<{ mentors: Mentor[] }>("/mentors/all");
+      setMentors(d.mentors);
+    } catch { /* silent */ }
+  }
+  useEffect(() => { load(); }, []);
+
+  function openAdd() {
+    setEditing(null);
+    setForm({ ...EMPTY_MENTOR_FORM });
+    setErr(""); setMsg("");
+    setModalOpen(true);
+  }
+  function openEdit(m: Mentor) {
+    setEditing(m);
+    setForm({
+      name:           m.name,
+      photo_url:      m.photo_url      || "",
+      bio:            m.bio            || "",
+      current_role:   m.current_role   || "",
+      organization:   m.organization   || "",
+      linkedin_url:   m.linkedin_url   || "",
+      github_url:     m.github_url     || "",
+      whatsapp_number: m.whatsapp_number || "",
+      is_active:      m.is_active,
+      sort_order:     m.sort_order,
+    });
+    setErr(""); setMsg("");
+    setModalOpen(true);
+  }
+
+  async function save() {
+    setErr("");
+    setSaveBusy(true);
+    try {
+      if (editing) {
+        await api(`/mentors/${editing.id}`, { method: "PATCH", body: form });
+        setMsg("Mentor updated.");
+      } else {
+        await api("/mentors", { method: "POST", body: form });
+        setMsg("Mentor added.");
+      }
+      setModalOpen(false);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function doDeactivate(m: Mentor) {
+    setBusy(true); setErr(""); setMsg(""); setDeactivateTarget(null);
+    try {
+      await api(`/mentors/${m.id}`, { method: "DELETE" });
+      setMsg(`${m.name} deactivated.`);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Action failed");
+    } finally { setBusy(false); }
+  }
+
+  async function reactivate(m: Mentor) {
+    setBusy(true); setErr(""); setMsg("");
+    try {
+      await api(`/mentors/${m.id}`, { method: "PATCH", body: { is_active: true } });
+      setMsg(`${m.name} reactivated.`);
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Action failed");
+    } finally { setBusy(false); }
+  }
+
+  const f = (k: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [k]: e.target.value }));
+
+  return (
+    <div className="stack-lg">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Mentors Directory</div>
+          <div style={{ fontSize: 14, color: "var(--grey-600)" }}>
+            {mentors.filter((m) => m.is_active).length} active · {mentors.filter((m) => !m.is_active).length} inactive
+          </div>
+        </div>
+        <button className="btn-primary btn-sm" onClick={openAdd}>+ Add Mentor</button>
+      </div>
+
+      <FormSuccess>{msg}</FormSuccess>
+      <FormError>{err}</FormError>
+
+      {mentors.length === 0 ? (
+        <EmptyState title="No mentors yet" body="Add your first mentor using the button above." />
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role / Org</th>
+                <th>Contacts</th>
+                <th>Status</th>
+                <th>Order</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mentors.map((m) => (
+                <tr key={m.id} style={{ opacity: m.is_active ? 1 : 0.5 }}>
+                  <td style={{ fontWeight: 600 }}>
+                    {m.name}
+                  </td>
+                  <td className="text-sm text-muted">
+                    {m.current_role && <span>{m.current_role}</span>}
+                    {m.current_role && m.organization && <span> @ </span>}
+                    {m.organization && <span style={{ fontWeight: 600, color: "var(--grey-700)" }}>{m.organization}</span>}
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {m.linkedin_url && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--grey-100)", color: "var(--grey-600)" }}>LI</span>}
+                      {m.github_url   && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--grey-100)", color: "var(--grey-600)" }}>GH</span>}
+                      {m.whatsapp_number && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "rgba(37,211,102,0.1)", color: "#128c4a" }}>WA</span>}
+                      {!m.linkedin_url && !m.github_url && !m.whatsapp_number && <span className="text-sm text-muted">—</span>}
+                    </div>
+                  </td>
+                  <td>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: m.is_active ? "#00a060" : "var(--grey-400)" }}>
+                      {m.is_active ? "● Active" : "○ Inactive"}
+                    </span>
+                  </td>
+                  <td className="text-sm text-muted">{m.sort_order}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => openEdit(m)}
+                        style={{ fontFamily: "var(--font-mono)" }}
+                      >Edit</button>
+                      {m.is_active ? (
+                        <button
+                          className="btn-sm"
+                          title={`Deactivate ${m.name}`}
+                          disabled={busy}
+                          onClick={() => setDeactivateTarget(m)}
+                          style={{
+                            background: "none", border: "1.5px solid rgba(192,57,43,0.3)",
+                            borderRadius: 8, padding: "5px 10px", cursor: "pointer",
+                            color: "#c0392b", fontSize: 12, fontFamily: "var(--font-mono)",
+                            opacity: busy ? 0.4 : 1,
+                          }}
+                        >Deactivate</button>
+                      ) : (
+                        <button
+                          className="btn-secondary btn-sm"
+                          disabled={busy}
+                          onClick={() => reactivate(m)}
+                          style={{ fontFamily: "var(--font-mono)" }}
+                        >Reactivate</button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add / Edit modal */}
+      {modalOpen && (
+        <Modal
+          open
+          onClose={() => setModalOpen(false)}
+          large
+          title={editing ? `Edit — ${editing.name}` : "Add Mentor"}
+          eyebrow="// Mentor profile"
+          sub="Fields marked with * are required. Contact fields are only visible to Core members and above."
+        >
+          <div className="stack" style={{ gap: 14 }}>
+            <FormError>{err}</FormError>
+
+            <div className="grid grid-2" style={{ gap: 12 }}>
+              <Field label="Name *" required>
+                <input id="mentor-name" className="input" value={form.name} onChange={f("name")} placeholder="e.g. Aarav Sharma" required />
+              </Field>
+              <Field label="Organization *">
+                <input id="mentor-org" className="input" value={form.organization} onChange={f("organization")} placeholder="e.g. Microsoft" />
+              </Field>
+            </div>
+
+            <Field label="Current Role">
+              <input id="mentor-role" className="input" value={form.current_role} onChange={f("current_role")} placeholder="e.g. Software Engineer" />
+            </Field>
+
+            <Field label="Bio">
+              <textarea
+                id="mentor-bio"
+                className="input"
+                rows={3}
+                value={form.bio}
+                onChange={f("bio")}
+                placeholder="e.g. BMSIT Coding Club alum (2021), now SDE at Microsoft working on Azure."
+              />
+            </Field>
+
+            <Field label="Photo URL">
+              <input id="mentor-photo" className="input" value={form.photo_url} onChange={f("photo_url")} placeholder="https://… or /uploads/…" />
+            </Field>
+
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 8, borderTop: "1px solid var(--grey-200)" }}>
+              Contact Info — Core+ only
+            </div>
+
+            <div className="grid grid-2" style={{ gap: 12 }}>
+              <Field label="LinkedIn URL">
+                <input id="mentor-linkedin" className="input" value={form.linkedin_url} onChange={f("linkedin_url")} placeholder="https://linkedin.com/in/…" />
+              </Field>
+              <Field label="GitHub URL">
+                <input id="mentor-github" className="input" value={form.github_url} onChange={f("github_url")} placeholder="https://github.com/…" />
+              </Field>
+            </div>
+
+            <Field label="WhatsApp Number">
+              <input id="mentor-wa" className="input" value={form.whatsapp_number} onChange={f("whatsapp_number")} placeholder="91XXXXXXXXXX (with country code, digits only)" />
+            </Field>
+
+            <div className="grid grid-2" style={{ gap: 12 }}>
+              <Field label="Sort Order">
+                <input id="mentor-order" className="input" type="number" value={form.sort_order} onChange={f("sort_order")} placeholder="0" />
+              </Field>
+              <Field label="Active">
+                <select
+                  id="mentor-active"
+                  className="input"
+                  value={form.is_active ? "1" : "0"}
+                  onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.value === "1" }))}
+                >
+                  <option value="1">Yes — show on public page</option>
+                  <option value="0">No — hidden from public</option>
+                </select>
+              </Field>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+              <button className="btn-secondary btn-block" onClick={() => setModalOpen(false)} disabled={saveBusy}>Cancel</button>
+              <button className="btn-primary btn-block" onClick={save} disabled={saveBusy} style={{ fontWeight: 700 }}>
+                {saveBusy ? "Saving…" : editing ? "Save changes" : "Add mentor"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Deactivate confirmation */}
+      {deactivateTarget && (
+        <div className="modal-overlay" onClick={() => setDeactivateTarget(null)}>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b", fontSize: 22 }}>⚠</div>
+            </div>
+            <h2 className="modal-title" style={{ textAlign: "center", fontSize: 20, marginBottom: 8 }}>Deactivate mentor?</h2>
+            <p className="modal-sub" style={{ textAlign: "center", marginBottom: 20 }}>
+              <strong>{deactivateTarget.name}</strong> will be hidden from the public mentors page. You can reactivate them at any time.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn-secondary btn-block" onClick={() => setDeactivateTarget(null)}>Cancel</button>
+              <button className="btn-danger btn-block" style={{ fontWeight: 700 }} onClick={() => doDeactivate(deactivateTarget)}>Yes, deactivate</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 /* ============================ EVENTS ============================ */
 function EventsTab() {
   const [events, setEvents] = useState<ClubEvent[] | null>(null);
@@ -901,11 +1247,14 @@ function ContentTab() {
 }
 
 /* ============================ ADMIN ============================ */
+
 function AdminTab() {
   const { user } = useAuth();
   const [president, setPresident] = useState<PublicUser | null>(null);
+  const [vicePresident, setVicePresident] = useState<PublicUser | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [assignId, setAssignId] = useState("");
+  const [assignVpId, setAssignVpId] = useState("");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -913,6 +1262,10 @@ function AdminTab() {
     try {
       const p = await api<{ president: PublicUser | null }>("/president");
       setPresident(p.president);
+    } catch { /* none */ }
+    try {
+      const vp = await api<{ vicePresident: PublicUser | null }>("/vice-president");
+      setVicePresident(vp.vicePresident);
     } catch { /* none */ }
     try {
       const u = await api<{ users: AdminUser[] }>("/users");
@@ -951,11 +1304,38 @@ function AdminTab() {
     }
   }
 
+  async function assignVicePresident(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignVpId) return;
+    setError(""); setMsg("");
+    try {
+      await api("/vice-president", { method: "POST", body: { user_id: Number(assignVpId) } });
+      setMsg("Vice President updated.");
+      setAssignVpId("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function removeVicePresident() {
+    if (!confirm("Remove the current Vice President? They keep their Core Head role.")) return;
+    setError(""); setMsg("");
+    try {
+      await api("/vice-president", { method: "DELETE" });
+      setMsg("Vice President removed.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
   return (
     <div className="stack-lg">
       <FormError>{error}</FormError>
       <FormSuccess>{msg}</FormSuccess>
 
+      {/* President */}
       <div className="card" style={{ padding: 24 }}>
         <h3 className="card-title" style={{ fontSize: 17, marginBottom: 6 }}>President</h3>
         <p className="card-muted" style={{ marginBottom: 18, lineHeight: 1.6 }}>
@@ -983,6 +1363,37 @@ function AdminTab() {
             </select>
           </Field>
           <button className="btn-primary btn-sm" type="submit">Assign President</button>
+        </form>
+      </div>
+
+      {/* Vice President */}
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 6 }}>Vice President</h3>
+        <p className="card-muted" style={{ marginBottom: 18, lineHeight: 1.6 }}>
+          The Vice President is a Core Head with the same global core-head permissions as the President.
+          There can be only one. A person cannot hold both President and Vice President simultaneously.
+        </p>
+        <div className="split" style={{ padding: "14px 16px", background: "var(--grey-50)", borderRadius: 12, marginBottom: 18 }}>
+          <div>
+            <div className="detail-meta-label">Current Vice President</div>
+            <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
+              {vicePresident ? vicePresident.name : "— none —"}
+            </div>
+            {vicePresident && <div className="text-mono text-sm text-muted">{vicePresident.email}</div>}
+          </div>
+          {vicePresident && <button className="btn-danger btn-sm" onClick={removeVicePresident}>Remove</button>}
+        </div>
+
+        <form onSubmit={assignVicePresident}>
+          <Field label="Assign Vice President (must be a Core Head)" required>
+            <select className="select" value={assignVpId} onChange={(e) => setAssignVpId(e.target.value)} required>
+              <option value="">Select a Core Head…</option>
+              {coreHeads.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+          </Field>
+          <button className="btn-primary btn-sm" type="submit">Assign Vice President</button>
         </form>
       </div>
 

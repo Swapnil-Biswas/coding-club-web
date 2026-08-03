@@ -117,9 +117,9 @@ export function importRegistrants(eventId, csvText, actor) {
   return { created, skipped, errors, total: rows.length };
 }
 
-// Get registrants list for an event (core_head+ only)
+// Get registrants list for an event (core_head+ or faculty observer)
 export function listRegistrants(eventId, actor) {
-  if (!isCoreHeadPlus(actor.role)) throw new HttpError(403, 'forbidden');
+  if (!isCoreHeadPlus(actor.role) && actor.role !== 'faculty') throw new HttpError(403, 'forbidden');
   const event = db.prepare(`SELECT id FROM events WHERE id = ?`).get(eventId);
   if (!event) throw new HttpError(404, 'event not found');
 
@@ -234,9 +234,9 @@ export function undoCheckin(eventId, registrantId, actor) {
   return { success: true, message: 'Check-in undone', registrantId };
 }
 
-// Export attendance as CSV (core_head+)
+// Export attendance as CSV (core_head+ or faculty observer)
 export function exportAttendance(eventId, actor) {
-  if (!isCoreHeadPlus(actor.role)) throw new HttpError(403, 'forbidden');
+  if (!isCoreHeadPlus(actor.role) && actor.role !== 'faculty') throw new HttpError(403, 'forbidden');
 
   const event = db.prepare(`SELECT id, title, start_datetime, venue FROM events WHERE id = ?`).get(eventId);
   if (!event) throw new HttpError(404, 'event not found');

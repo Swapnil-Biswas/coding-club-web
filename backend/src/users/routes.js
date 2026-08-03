@@ -14,9 +14,9 @@ usersRouter.get('/me', requireAuth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-// member and above can view the members list. Core is view-only (no promotions).
+// member and above, plus faculty observers, can view the members list.
 // The transition matrix in service.js enforces what each role can actually do.
-usersRouter.get('/', requireAuth, requireRole('member', 'core', 'core_head', 'admin'), (_req, res) => {
+usersRouter.get('/', requireAuth, requireRole('member', 'core', 'core_head', 'admin', 'faculty'), (_req, res) => {
   res.json({ users: listUsers() });
 });
 

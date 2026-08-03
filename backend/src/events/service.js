@@ -48,9 +48,10 @@ export function canForceComplete(role) {
 //   public/logged-out:  published + public
 //   member:             published + (public OR member_only)
 //   core/core_head/admin: everything, including drafts
+//   faculty: observer — sees all events including drafts (read-only)
 function visibilityClause(viewer) {
-  if (viewer && roleAtLeast(viewer.role, 'core')) {
-    // core+ sees all events regardless of status or visibility.
+  if (viewer && (roleAtLeast(viewer.role, 'core') || viewer.role === 'faculty')) {
+    // core+  and faculty see all events regardless of status or visibility.
     return { sql: '1=1', params: [] };
   }
   if (viewer && viewer.role === 'member') {

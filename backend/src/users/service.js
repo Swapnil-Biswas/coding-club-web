@@ -8,20 +8,34 @@ import { ROLES, publicUser, findUserById, changePassword } from '../auth/service
 // Rules:
 //   - core       : view-only, cannot promote anyone.
 //   - core_head  : can promote member → core only.
-//   - admin      : full control — any from/to combination.
+//   - admin      : full control — any from/to combination including faculty.
+//   - faculty    : parallel role — assigned/removed only by admin.
 //                  Hard guard below prevents self-demotion.
+//
+// NOTE: 'faculty' is intentionally OMITTED from ROLES_LIST so that numeric
+// rank comparisons (roleAtLeast, EVENT_MANAGERS, etc.) can never accidentally
+// include it. Faculty permissions are defined separately via isFacultyBlocked().
 const ROLES_LIST = ['public', 'member', 'core', 'core_head', 'admin'];
 
 const ALLOWED_TRANSITIONS = [
   // core_head: member → core only
   { actor: 'core_head', from: 'member', to: 'core' },
-  // admin: every possible (from → to) pair
+  // admin: every possible (from → to) pair within the linear hierarchy
   ...ROLES_LIST.flatMap((from) =>
     ROLES_LIST
       .filter((to) => to !== from)
       .map((to) => ({ actor: 'admin', from, to })),
   ),
+  // admin: assign/remove faculty (parallel role — not in the linear list)
+  ...ROLES_LIST.map((from) => ({ actor: 'admin', from, to: 'faculty' })),
+  ...ROLES_LIST.map((to)   => ({ actor: 'admin', from: 'faculty', to })),
 ];
+
+// Central faculty write-block guard. Import and call this at the top of any
+// service function that mutates state. Faculty is an observer role only.
+export function isFacultyBlocked(role) {
+  return role === 'faculty';
+}
 
 export function canTransition(actorRole, fromRole, toRole) {
   return ALLOWED_TRANSITIONS.some(

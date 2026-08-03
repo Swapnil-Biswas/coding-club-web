@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { authRouter } from './auth/routes.js';
 import { usersRouter } from './users/routes.js';
 import { presidentRouter } from './users/president.js';
+import { vicePresidentRouter } from './users/vice-president.js';
 import { eventsRouter } from './events/routes.js';
 import { attendanceRouter } from './attendance/routes.js';
 import { teamsRouter } from './teams/routes.js';
@@ -24,6 +25,7 @@ import { analyticsRouter } from './analytics/routes.js';
 import { activityLogRouter } from './activity-log/routes.js';
 import { searchRouter } from './search/routes.js';
 import { projectsRouter } from './projects/routes.js';
+import { mentorsRouter } from './mentors/routes.js';
 import { HttpError } from './lib/errors.js';
 import { loadUser } from './auth/middleware.js';
 
@@ -62,8 +64,9 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use('/auth', authRouter);
 app.use('/users', usersRouter);
-// President endpoints
+// President / Vice President endpoints
 app.use('/president', presidentRouter);
+app.use('/vice-president', vicePresidentRouter);
 // Attendance routes use both /events/:id/... and /users/me/... paths.
 // Mount BEFORE /events so attendance gets first match for /events/:id/registrants etc.
 app.use('/', attendanceRouter);
@@ -83,6 +86,7 @@ app.use('/analytics', analyticsRouter);
 app.use('/activity-log', activityLogRouter);
 app.use('/', searchRouter);
 app.use('/projects', projectsRouter);
+app.use('/mentors', mentorsRouter);
 
 
 // 404

@@ -5,16 +5,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/app/lib/auth";
 import { assetUrl } from "@/app/lib/api";
-import { isCorePlus, isCoreHeadPlus, displayTitle } from "@/app/lib/roles";
+import { isCorePlus, isCoreHeadPlus, isFaculty, displayTitle } from "@/app/lib/roles";
 import NotificationsBell from "./Notifications";
 import { Avatar } from "./ui";
 
 const publicLinks = [
-  { label: "EVENTS", href: "/events" },
-  { label: "TEAM", href: "/teams" },
-  { label: "GALLERY", href: "/gallery" },
+  { label: "EVENTS",   href: "/events" },
+  { label: "TEAM",     href: "/teams" },
+  { label: "MENTORS",  href: "/mentors" },
+  { label: "GALLERY",  href: "/gallery" },
   { label: "SPONSORS", href: "/sponsors" },
-  { label: "ABOUT", href: "/about" },
+  { label: "ABOUT",    href: "/about" },
 ];
 
 export default function SiteHeader() {
@@ -128,6 +129,7 @@ function AccountMenu() {
 
   const corePlus = isCorePlus(user);
   const coreHeadPlus = isCoreHeadPlus(user);
+  const facultyUser = isFaculty(user);
 
   async function handleLogout() {
     setOpen(false);
@@ -182,6 +184,12 @@ function AccountMenu() {
             <Link href="/dashboard" className="dropdown-item" onClick={() => setOpen(false)}>
               <MenuIcon path="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z" />
               Dashboard
+            </Link>
+          )}
+          {facultyUser && (
+            <Link href="/dashboard" className="dropdown-item" onClick={() => setOpen(false)}>
+              <MenuIcon path="M18 20V10M12 20V4M6 20v-6" />
+              Analytics (observer)
             </Link>
           )}
 

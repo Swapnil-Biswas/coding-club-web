@@ -1,7 +1,7 @@
 // Shared shapes mirroring the backend's public serializers. Field names match
 // the backend JSON exactly (snake_case), so no mapping layer is needed.
 
-export type Role = "public" | "member" | "core" | "core_head" | "admin";
+export type Role = "public" | "member" | "core" | "core_head" | "admin" | "faculty";
 export type EventVisibility = "public" | "member_only";
 export type EventStatus = "draft" | "published" | "completed";
 export type CertificateType =
@@ -261,4 +261,22 @@ export interface Project {
   creator_name: string | null;
   created_at:   string;
   updated_at:   string;
+}
+
+// Phase 7: Mentors directory
+export interface Mentor {
+  id:           number;
+  name:         string;
+  photo_url:    string | null;
+  bio:          string;
+  current_role: string | null;
+  organization: string;
+  is_active:    boolean;
+  sort_order:   number;
+  created_at:   string;
+  updated_at:   string;
+  // Contact-tier: only present when the API returns them (core/core_head/admin viewers)
+  linkedin_url?:    string | null;
+  github_url?:      string | null;
+  whatsapp_number?: string | null;
 }

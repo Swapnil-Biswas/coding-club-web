@@ -7,7 +7,7 @@ import { issueVerificationCode, consumeVerificationCode } from './verification.j
 const BCRYPT_ROUNDS = 12;
 const SESSION_TTL_DAYS = 30;
 
-export const ROLES = ['public', 'member', 'core', 'core_head', 'admin'];
+export const ROLES = ['public', 'member', 'core', 'core_head', 'admin', 'faculty'];
 
 export function emailDomainIsAllowed(email) {
   const e = String(email || '').toLowerCase().trim();

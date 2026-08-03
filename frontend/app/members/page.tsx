@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
-import { isAdmin } from "@/app/lib/roles";
+import { isAdmin, isFaculty } from "@/app/lib/roles";
 import type { AdminUser, PublicUser, Role } from "@/app/lib/types";
 import { formatDate } from "@/app/lib/format";
 import {
@@ -16,7 +16,7 @@ import {
   FormSuccess,
 } from "@/app/components/app/ui";
 
-const ROLE_ORDER: Role[] = ["admin", "core_head", "core", "member", "public"];
+const ROLE_ORDER: Role[] = ["admin", "core_head", "core", "member", "public", "faculty"];
 
 export default function MembersPage() {
   const { user, ready, openAuth } = useAuth();
@@ -48,6 +48,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
   const admin = isAdmin(viewer);
+  const faculty = isFaculty(viewer);
   const coreHead = viewer.role === 'core_head' || admin; // core_head can promote member→core
 
   async function load() {
@@ -68,7 +69,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
     setBusyId(target.id);
     try {
       await api(`/users/${target.id}/role`, { method: "PATCH", body: { role } });
-      setActionMsg(`${target.name} is now ${role === "core_head" ? "Core Head" : role}.`);
+      setActionMsg(`${target.name} is now ${role === "core_head" ? "Core Head" : role === "faculty" ? "Faculty" : role}.`);
       await load();
     } catch (err) {
       setActionErr(err instanceof Error ? err.message : "Action failed");
@@ -106,7 +107,12 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
     return users
       .filter((u) => (tab === "all" ? true : u.role === tab))
       .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
+      .sort((a, b) => {
+        const ai = ROLE_ORDER.indexOf(a.role as Role);
+        const bi = ROLE_ORDER.indexOf(b.role as Role);
+        // Unknown roles (shouldn't happen) sort to end
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
   }, [users, tab, query]);
 
   return (
@@ -116,7 +122,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
           eyebrow="// Members"
           title="People &"
           ghost="roles."
-          sub={admin ? "Promote, demote, and manage every account." : coreHead ? "Core Heads can promote Members to Core." : "View all club members and their roles."}
+          sub={admin ? "Promote, demote, manage accounts, and assign Faculty status." : coreHead ? "Core Heads can promote Members to Core." : faculty ? "You are viewing as a Faculty observer (read-only)." : "View all club members and their roles."}
           actions={
             <input
               className="input"
@@ -134,7 +140,14 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
         <Tabs
           active={tab}
           onChange={setTab}
-          tabs={[{ id: "all", label: "All", count: counts.all }, ...ROLE_ORDER.map((r) => ({ id: r, label: r === "core_head" ? "Core Head" : r.charAt(0).toUpperCase() + r.slice(1), count: counts[r] || 0 }))]}
+          tabs={[
+            { id: "all", label: "All", count: counts.all },
+            ...ROLE_ORDER.map((r) => ({
+              id: r,
+              label: r === "core_head" ? "Core Head" : r.charAt(0).toUpperCase() + r.slice(1),
+              count: counts[r] || 0,
+            })),
+          ]}
         />
 
         {users === null && !error && <Spinner label="Loading members" />}
@@ -201,6 +214,18 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                         {admin && u.role === "admin" && u.id !== viewer.id && (
                           <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
                             → Core Head
+                          </ActionButton>
+                        )}
+                        {/* Faculty assignment — admin can assign/remove on any non-admin, non-faculty user */}
+                        {admin && u.id !== viewer.id && u.role !== "faculty" && u.role !== "admin" && (
+                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "faculty")}>
+                            → Faculty
+                          </ActionButton>
+                        )}
+                        {/* Remove faculty — admin can demote faculty back to member (default) */}
+                        {admin && u.role === "faculty" && (
+                          <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                            Remove Faculty
                           </ActionButton>
                         )}
                         {/* Delete — admin only, never yourself */}

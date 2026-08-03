@@ -17,7 +17,15 @@ import { logActivity } from './activityLog.js';
 import { notifyRegistrants } from '../notifications/service.js';
 
 // Role rank — for tier checks (at-least-X).
+// NOTE: 'faculty' is intentionally absent from ROLE_RANK. It is a parallel
+// role, not part of the linear hierarchy. All faculty-specific permission
+// checks are done via explicit isFaculty() guards below.
 const ROLE_RANK = { public: 0, member: 1, core: 2, core_head: 3, admin: 4 };
+
+// Is this actor a faculty observer?
+export function isFaculty(actor) {
+  return actor?.role === 'faculty';
+}
 
 export function roleAtLeast(role, minRole) {
   return (ROLE_RANK[role] ?? 0) >= (ROLE_RANK[minRole] ?? 0);
@@ -33,11 +41,14 @@ export function isPresident(actor) {
   return actor?.role === 'core_head' && actor?.club_title === 'President';
 }
 
-// Admin and President are both "super core heads" for the purposes of team /
-// gallery / history management. The spec is explicit: President gets GLOBAL
-// core-head permissions, but NOT admin permissions.
+export function isVicePresident(actor) {
+  return actor?.role === 'core_head' && actor?.club_title === 'Vice President';
+}
+
+// Admin, President, and Vice President are all "super core heads" for the
+// purposes of team / gallery / history / event management.
 export function isSuperCoreHead(actor) {
-  return isAdmin(actor) || isPresident(actor);
+  return isAdmin(actor) || isPresident(actor) || isVicePresident(actor);
 }
 
 // True when the actor can do core+ things (e.g. create events, scan QR).
@@ -290,6 +301,7 @@ export function canViewAnnouncements(actor, event) {
   if (!actor) return false;
   if (isAdmin(actor)) return true;
   if (isPresident(actor)) return true;
+  if (isFaculty(actor)) return true; // observer — can view all announcements
   if (actor.role === 'core_head') return event.organizer_id === actor.id;
   if (actor.role === 'core' || actor.role === 'member') return event.status === 'published';
   return false;
@@ -305,6 +317,7 @@ export function canViewLeaderboard(actor, event) {
   if (!actor) return false;
   if (isAdmin(actor)) return true;
   if (isPresident(actor)) return true;
+  if (isFaculty(actor)) return true; // observer — can view leaderboards
   if (actor.role === 'core_head') return event.organizer_id === actor.id;
   return false;
 }
@@ -313,7 +326,8 @@ export function canViewLeaderboard(actor, event) {
 
 export function canViewAnalytics(actor) {
   if (!actor) return false;
-  return isAdmin(actor) || isPresident(actor) || actor.role === 'core_head';
+  // Faculty are observers — they can view analytics dashboards (read-only).
+  return isAdmin(actor) || isPresident(actor) || actor.role === 'core_head' || isFaculty(actor);
 }
 
 export function canViewActivityLog(actor) {

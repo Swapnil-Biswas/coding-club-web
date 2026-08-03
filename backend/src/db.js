@@ -23,9 +23,6 @@ const roleConstraint = db
   .get();
 const hasCoreHead = roleConstraint && /core_head/.test(roleConstraint.sql || '');
 if (roleConstraint && !hasCoreHead) {
-  // Rebuild users table with the new role enum. The order of operations matters:
-  // PRAGMA foreign_keys is OFF during the rebuild to avoid cascading surprises,
-  // then turned back on. We restore the OFF state at the end of the transaction.
   db.pragma('foreign_keys = OFF');
   const tx = db.transaction(() => {
     db.exec(`
@@ -50,13 +47,44 @@ if (roleConstraint && !hasCoreHead) {
   db.pragma('foreign_keys = ON');
 }
 
+// Phase 6A: extend role CHECK to include 'faculty'. Same rebuild pattern.
+const roleConstraint6a = db
+  .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='users'`)
+  .get();
+const hasFaculty = roleConstraint6a && /faculty/.test(roleConstraint6a.sql || '');
+if (roleConstraint6a && !hasFaculty) {
+  db.pragma('foreign_keys = OFF');
+  const tx6a = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'public' CHECK (role IN ('public','member','core','core_head','admin','faculty')),
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        promoted_by INTEGER REFERENCES users(id),
+        promoted_at TEXT,
+        profile_photo_path TEXT,
+        club_title TEXT
+      );
+      INSERT INTO users_new SELECT id,name,email,password_hash,role,email_verified,created_at,promoted_by,promoted_at,profile_photo_path,club_title FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+    `);
+  });
+  tx6a();
+  db.pragma('foreign_keys = ON');
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'public' CHECK (role IN ('public','member','core','core_head','admin')),
+    role TEXT NOT NULL DEFAULT 'public' CHECK (role IN ('public','member','core','core_head','admin','faculty')),
     email_verified INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     promoted_by INTEGER REFERENCES users(id),
@@ -303,4 +331,23 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
   CREATE INDEX IF NOT EXISTS idx_projects_status   ON projects(status);
   CREATE INDEX IF NOT EXISTS idx_projects_featured ON projects(featured, sort_order);
+
+  -- Phase 7: Mentors directory
+  CREATE TABLE IF NOT EXISTS mentors (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    photo_url        TEXT,
+    bio              TEXT NOT NULL DEFAULT '',
+    current_role     TEXT,
+    organization     TEXT NOT NULL DEFAULT '',
+    linkedin_url     TEXT,
+    github_url       TEXT,
+    whatsapp_number  TEXT,
+    is_active        INTEGER NOT NULL DEFAULT 1,
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    created_by       INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_mentors_active ON mentors(is_active, sort_order);
 `);

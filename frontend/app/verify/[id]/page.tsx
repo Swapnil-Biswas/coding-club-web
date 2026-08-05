@@ -54,20 +54,20 @@ function Verify({ id }: { id: string }) {
           <div>
             <span className="section-eyebrow">// Verified</span>
             <div className="split split-start">
-              <h1 className="page-title" style={{ fontSize: 36 }}>
+              <h1 className="page-title certificate-title">
                 This certificate is <span className="ghost">genuine.</span>
               </h1>
               <Badge variant="published" dot>Verified</Badge>
             </div>
 
-            <div className="card" style={{ marginTop: 28, padding: 32 }}>
+            <div className="card certificate-card" style={{ marginTop: 28, overflowWrap: "anywhere" }}>
               <div className="certificate-mark" style={{ textAlign: "center", marginBottom: 26 }}>
                 <div className="empty-glyph" aria-hidden="true"><span /><span /><span /><span /><span /></div>
                 <div className="section-eyebrow" style={{ marginBottom: 6 }}>Certificate of {certTypeLabel(cert.certificate_type)}</div>
-                <div className="page-title" style={{ fontSize: 30 }}>{cert.recipient_name}</div>
+                <div className="page-title certificate-recipient">{cert.recipient_name}</div>
               </div>
 
-              <div className="detail-meta" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              <div className="detail-meta verify-detail-meta">
                 <div className="detail-meta-item">
                   <div className="detail-meta-label">Event</div>
                   <div className="detail-meta-value">{cert.event_title}</div>

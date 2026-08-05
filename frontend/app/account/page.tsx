@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { api, assetUrl } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
 import { displayTitle } from "@/app/lib/roles";
 import type { ClubEvent, Certificate } from "@/app/lib/types";
 import { formatDate, certTypeLabel } from "@/app/lib/format";
+import ImageSourceInput from "@/app/components/app/ImageSourceInput";
 import {
   Field,
   FormError,
@@ -58,11 +59,11 @@ function AccountInner() {
     <div className="page">
       <div className="section-inner section-inner-sm">
         <div className="split split-start" style={{ marginBottom: 32 }}>
-          <div className="cluster" style={{ gap: 18 }}>
+          <div className="cluster account-profile-summary" style={{ gap: 18 }}>
             <Avatar name={user.name} src={assetUrl(user.profile_photo_url)} large />
-            <div>
+            <div className="account-profile-copy">
               <span className="section-eyebrow">// Account</span>
-              <h1 className="page-title" style={{ fontSize: 34 }}>{user.name}</h1>
+              <h1 className="page-title account-title">{user.name}</h1>
               <div className="cluster" style={{ marginTop: 8, gap: 8 }}>
                 <Badge variant="dark">{displayTitle(user)}</Badge>
                 <span className="text-mono text-sm text-muted">{user.email}</span>
@@ -84,39 +85,59 @@ function AccountInner() {
 
 /* ---------------- Profile photo ---------------- */
 function PhotoUpload({ onDone }: { onDone: () => Promise<void> }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  async function onChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!file && !url.trim()) {
+      setErr("Choose an image file or provide an image link.");
+      return;
+    }
     setErr("");
     setMsg("");
     setBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("photo", file);
-      await api("/users/me/photo", { method: "POST", body: fd, isForm: true });
+      if (file) {
+        const body = new FormData();
+        body.append("photo", file);
+        await api("/users/me/photo", { method: "POST", body, isForm: true });
+      } else {
+        await api("/users/me/photo", {
+          method: "POST",
+          body: { photo_url: url.trim() },
+        });
+      }
+      setFile(null);
+      setUrl("");
       setMsg("Photo updated.");
       await onDone();
-    } catch (er) {
-      setErr(er instanceof Error ? er.message : "Upload failed");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setBusy(false);
-      e.target.value = "";
     }
   }
 
   return (
-    <div style={{ textAlign: "right" }}>
-      <label className="btn-secondary btn-sm" style={{ cursor: busy ? "wait" : "pointer" }}>
+    <form className="photo-upload" onSubmit={submit}>
+      <ImageSourceInput
+        file={file}
+        url={url}
+        onFileChange={setFile}
+        onUrlChange={setUrl}
+        onError={setErr}
+        disabled={busy}
+      />
+      <button className="btn-secondary btn-sm" type="submit" disabled={busy || (!file && !url.trim())}>
         {busy ? "Uploading…" : "Change photo"}
-        <input type="file" accept="image/*" onChange={onChange} style={{ display: "none" }} disabled={busy} />
-      </label>
+      </button>
       {msg && <div className="text-mono text-sm" style={{ color: "#1e7e34", marginTop: 6 }}>{msg}</div>}
       {err && <div className="text-mono text-sm" style={{ color: "#c0392b", marginTop: 6 }}>{err}</div>}
-    </div>
+    </form>
   );
 }
 

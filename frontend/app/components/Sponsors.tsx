@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/app/lib/api";
+import { api, assetUrl } from "@/app/lib/api";
 import type { Sponsor } from "@/app/lib/types";
 import RevealOnScroll from "./RevealOnScroll";
 import GlyphDivider from "./GlyphDivider";
@@ -54,7 +54,7 @@ export default function SponsorsSection() {
                   style={{ textDecoration: "none", color: "inherit" }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className="sponsor-logo" src={s.logo_url} alt={s.name} />
+                  <img className="sponsor-logo" src={assetUrl(s.logo_url) || ""} alt={s.name} />
                   <div>
                     <div className="card-title" style={{ fontSize: 17 }}>{s.name}</div>
                     {s.description && <div className="card-muted" style={{ marginTop: 6 }}>{s.description}</div>}

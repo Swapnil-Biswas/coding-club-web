@@ -106,7 +106,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
     const q = query.trim().toLowerCase();
     return users
       .filter((u) => (tab === "all" ? true : u.role === tab))
-      .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+      .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
       .sort((a, b) => {
         const ai = ROLE_ORDER.indexOf(a.role as Role);
         const bi = ROLE_ORDER.indexOf(b.role as Role);
@@ -125,9 +125,8 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
           sub={admin ? "Promote, demote, manage accounts, and assign Faculty status." : coreHead ? "Core Heads can promote Members to Core." : faculty ? "You are viewing as a Faculty observer (read-only)." : "View all club members and their roles."}
           actions={
             <input
-              className="input"
-              style={{ width: 240 }}
-              placeholder="Search name or email…"
+              className="input compact-search"
+              placeholder={admin ? "Search name or email…" : "Search name…"}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -159,9 +158,9 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Email</th>
+                  {admin && <th>Email</th>}
                   <th>Role</th>
-                  <th>Verified</th>
+                  {admin && <th>Verified</th>}
                   <th>Joined</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
@@ -173,9 +172,9 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                       {u.name}
                       {u.id === viewer.id && <span className="text-mono text-sm text-muted"> (you)</span>}
                     </td>
-                    <td className="text-mono text-sm">{u.email}</td>
+                    {admin && <td className="text-mono text-sm">{u.email}</td>}
                     <td><RoleChip role={u.role} /></td>
-                    <td>{u.email_verified ? "Yes" : "No"}</td>
+                    {admin && <td>{u.email_verified ? "Yes" : "No"}</td>}
                     <td className="text-sm text-muted">{formatDate(u.created_at)}</td>
                     <td>
                       <div className="table-actions">
@@ -263,7 +262,7 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--grey-400)", padding: 32 }}>No members match.</td></tr>
+                  <tr><td colSpan={admin ? 6 : 4} style={{ textAlign: "center", color: "var(--grey-400)", padding: 32 }}>No members match.</td></tr>
                 )}
               </tbody>
             </table>
@@ -361,7 +360,7 @@ function ConfirmDeleteModal({
             className="text-mono"
             style={{ fontSize: 12, color: "var(--grey-500)" }}
           >
-            ({user.email})
+            {user.email ? `(${user.email})` : ""}
           </span>
           .<br />
           <span style={{ color: "#c0392b", fontWeight: 600 }}>

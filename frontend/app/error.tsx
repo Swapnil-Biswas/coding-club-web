@@ -21,7 +21,7 @@ export default function GlobalError({
           An <span className="ghost">error.</span>
         </h1>
         <p className="page-sub" style={{ margin: "16px auto 30px" }}>
-          {error?.message || "An unexpected error occurred. Please try again."}
+          An unexpected error occurred. Please try again.
         </p>
         <button className="btn-primary" onClick={reset}>Try again</button>
       </div>

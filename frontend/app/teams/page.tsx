@@ -75,7 +75,7 @@ function TeamBlock({ team }: { team: Team }) {
         <div className="cluster" style={{ gap: 16 }}>
           {team.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="team-logo" src={team.logo_url} alt="" />
+            <img className="team-logo" src={assetUrl(team.logo_url) || ""} alt="" />
           ) : (
             <div className="team-logo" style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--grey-500)", fontSize: 18 }}>
               {team.name.charAt(0)}

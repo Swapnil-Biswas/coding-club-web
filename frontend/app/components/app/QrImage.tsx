@@ -32,7 +32,8 @@ export default function QrImage({ value, size = 220 }: { value: string; size?: n
   return (
     <canvas
       ref={ref}
-      style={{ width: size, height: size, borderRadius: 8 }}
+      className="qr-canvas"
+      style={{ width: size, maxWidth: "100%", height: "auto", aspectRatio: "1", borderRadius: 8 }}
       aria-label="QR code for event check-in"
     />
   );

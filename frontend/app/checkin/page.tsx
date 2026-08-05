@@ -122,7 +122,13 @@ function CheckinInner({
       html5Ref.current = scanner as unknown as { stop: () => Promise<void>; clear: () => void };
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 240 },
+        {
+          fps: 10,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const size = Math.min(240, Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.75));
+            return { width: size, height: size };
+          },
+        },
         (decoded: string) => {
           // Extract a plain token from a URL if the QR encodes one
           let t = decoded.trim();
@@ -220,8 +226,8 @@ function CheckinInner({
 
         {mode === "scan" ? (
           <div className="stack">
-            <div className="card" style={{ padding: 24 }}>
-              <div className="split" style={{ marginBottom: 16 }}>
+            <div className="card checkin-card">
+              <div className="split mobile-split" style={{ marginBottom: 16 }}>
                 <h3 className="card-title" style={{ fontSize: 17 }}>Camera scanner</h3>
                 {!cameraActive ? (
                   <button className="btn-secondary btn-sm" onClick={startCamera} disabled={!eventId}>
@@ -231,7 +237,7 @@ function CheckinInner({
                   <button className="btn-secondary btn-sm" onClick={stopCamera}>Stop camera</button>
                 )}
               </div>
-              <div ref={scannerRef} style={{ width: "100%", minHeight: cameraActive ? 300 : 0, borderRadius: 12, overflow: "hidden", background: cameraActive ? "#000" : "transparent" }} />
+              <div ref={scannerRef} style={{ width: "100%", minHeight: cameraActive ? "min(300px, 75vw)" : 0, borderRadius: 12, overflow: "hidden", background: cameraActive ? "#000" : "transparent" }} />
               {!cameraActive && (
                 <p className="card-muted" style={{ textAlign: "center" }}>
                   Point the camera at a registrant&apos;s QR code, or paste the token below.
@@ -239,15 +245,15 @@ function CheckinInner({
               )}
             </div>
 
-            <form className="card" style={{ padding: 24 }} onSubmit={(e) => submitToken(e)}>
+            <form className="card checkin-card" onSubmit={(e) => submitToken(e)}>
               <h3 className="card-title" style={{ fontSize: 17, marginBottom: 14 }}>Paste token</h3>
-              <div style={{ display: "flex", gap: 10 }}>
+              <div className="mobile-control-row">
                 <input
                   className="input text-mono"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="QR token…"
-                  style={{ flex: 1 }}
+                  style={{ flex: "1 1 200px", minWidth: 0 }}
                 />
                 <button className="btn-primary" type="submit" disabled={busy || !eventId || !token.trim()}>
                   {busy ? "…" : "Check in"}
@@ -256,8 +262,8 @@ function CheckinInner({
             </form>
           </div>
         ) : (
-          <div className="card" style={{ padding: 24 }}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+          <div className="card checkin-card">
+            <div className="mobile-control-row" style={{ marginBottom: 18 }}>
               <input
                 className="input"
                 value={search}
@@ -279,10 +285,10 @@ function CheckinInner({
 
             <div className="stack" style={{ gap: 10 }}>
               {searchResults.map((r) => (
-                <div key={r.id} className="split" style={{ padding: "13px 16px", background: "var(--grey-50)", borderRadius: 12, border: "1px solid var(--grey-100)" }}>
-                  <div>
+                <div key={r.id} className="split mobile-split" style={{ padding: "13px 16px", background: "var(--grey-50)", borderRadius: 12, border: "1px solid var(--grey-100)" }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: "var(--grey-900)", fontSize: 14.5 }}>{r.name}</div>
-                    <div className="text-mono text-sm text-muted">{r.email}{r.team_name ? ` · ${r.team_name}` : ""}</div>
+                    <div className="text-mono text-sm text-muted" style={{ overflowWrap: "anywhere" }}>{r.email}{r.team_name ? ` · ${r.team_name}` : ""}</div>
                   </div>
                   {r.checked_in ? (
                     <Badge variant="dark">Checked in</Badge>

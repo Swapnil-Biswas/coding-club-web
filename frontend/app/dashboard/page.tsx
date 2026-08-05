@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/app/lib/api";
+import { api, assetUrl } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
 import { isCoreHeadPlus, isAdmin, isPresident, isFaculty } from "@/app/lib/roles";
 import type {
@@ -20,6 +20,7 @@ import type {
   Mentor,
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
+import ImageSourceInput from "@/app/components/app/ImageSourceInput";
 import {
   PageHeader,
   Spinner,
@@ -274,6 +275,7 @@ function MentorsTab() {
   const [modalOpen, setModalOpen]   = useState(false);
   const [editing, setEditing]       = useState<Mentor | null>(null);
   const [form, setForm]             = useState({ ...EMPTY_MENTOR_FORM });
+  const [photoFile, setPhotoFile]   = useState<File | null>(null);
   const [saveBusy, setSaveBusy]     = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<Mentor | null>(null);
 
@@ -288,6 +290,7 @@ function MentorsTab() {
   function openAdd() {
     setEditing(null);
     setForm({ ...EMPTY_MENTOR_FORM });
+    setPhotoFile(null);
     setErr(""); setMsg("");
     setModalOpen(true);
   }
@@ -295,7 +298,7 @@ function MentorsTab() {
     setEditing(m);
     setForm({
       name:           m.name,
-      photo_url:      m.photo_url      || "",
+      photo_url:      "",
       bio:            m.bio            || "",
       current_role:   m.current_role   || "",
       organization:   m.organization   || "",
@@ -305,6 +308,7 @@ function MentorsTab() {
       is_active:      m.is_active,
       sort_order:     m.sort_order,
     });
+    setPhotoFile(null);
     setErr(""); setMsg("");
     setModalOpen(true);
   }
@@ -313,13 +317,19 @@ function MentorsTab() {
     setErr("");
     setSaveBusy(true);
     try {
-      if (editing) {
-        await api(`/mentors/${editing.id}`, { method: "PATCH", body: form });
-        setMsg("Mentor updated.");
+      const path = editing ? `/mentors/${editing.id}` : "/mentors";
+      const method = editing ? "PATCH" : "POST";
+      if (photoFile) {
+        const body = new FormData();
+        Object.entries(form).forEach(([key, value]) => {
+          body.append(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
+        });
+        body.append("photo", photoFile);
+        await api(path, { method, body, isForm: true });
       } else {
-        await api("/mentors", { method: "POST", body: form });
-        setMsg("Mentor added.");
+        await api(path, { method, body: form });
       }
+      setMsg(editing ? "Mentor updated." : "Mentor added.");
       setModalOpen(false);
       await load();
     } catch (e) {
@@ -484,8 +494,15 @@ function MentorsTab() {
               />
             </Field>
 
-            <Field label="Photo URL">
-              <input id="mentor-photo" className="input" value={form.photo_url} onChange={f("photo_url")} placeholder="https://… or /uploads/…" />
+            <Field label="Photo">
+              <ImageSourceInput
+                file={photoFile}
+                url={form.photo_url}
+                onFileChange={setPhotoFile}
+                onUrlChange={(photo_url) => setForm((current) => ({ ...current, photo_url }))}
+                onError={setErr}
+                disabled={saveBusy}
+              />
             </Field>
 
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", letterSpacing: "0.1em", textTransform: "uppercase", paddingTop: 8, borderTop: "1px solid var(--grey-200)" }}>
@@ -677,12 +694,16 @@ function EventFormModal({
     visibility: "public",
     unstop_link: "",
   });
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerUrl, setBannerUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
       setError("");
+      setBannerFile(null);
+      setBannerUrl("");
       setForm(
         event
           ? {
@@ -715,10 +736,23 @@ function EventFormModal({
         visibility: form.visibility,
         unstop_link: form.unstop_link.trim() || null,
       };
+      let savedEvent: ClubEvent;
       if (isEdit && event) {
-        await api(`/events/${event.id}`, { method: "PATCH", body });
+        const result = await api<{ event: ClubEvent }>(`/events/${event.id}`, { method: "PATCH", body });
+        savedEvent = result.event;
       } else {
-        await api("/events", { method: "POST", body });
+        const result = await api<{ event: ClubEvent }>("/events", { method: "POST", body });
+        savedEvent = result.event;
+      }
+      if (bannerFile) {
+        const bannerBody = new FormData();
+        bannerBody.append("banner", bannerFile);
+        await api(`/events/${savedEvent.id}/banner`, { method: "POST", body: bannerBody, isForm: true });
+      } else if (bannerUrl.trim()) {
+        await api(`/events/${savedEvent.id}/banner`, {
+          method: "POST",
+          body: { banner_image_url: bannerUrl.trim() },
+        });
       }
       await onSaved();
     } catch (err) {
@@ -754,6 +788,16 @@ function EventFormModal({
             <input className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Hackathon" />
           </Field>
         </div>
+        <Field label="Banner image" hint={event?.banner_image_url ? "Leave empty to keep the current banner." : undefined}>
+          <ImageSourceInput
+            file={bannerFile}
+            url={bannerUrl}
+            onFileChange={setBannerFile}
+            onUrlChange={setBannerUrl}
+            onError={setError}
+            disabled={busy}
+          />
+        </Field>
         <div className="form-row">
           <Field label="Visibility" required>
             <select className="select" value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value })}>
@@ -789,6 +833,7 @@ function TeamsTab() {
   const [msg, setMsg] = useState("");
   const [creating, setCreating] = useState(false);
   const [newTeam, setNewTeam] = useState({ name: "", description: "", logo_url: "" });
+  const [teamLogoFile, setTeamLogoFile] = useState<File | null>(null);
   const [selected, setSelected] = useState<Team | null>(null);
 
   async function load() {
@@ -810,9 +855,18 @@ function TeamsTab() {
     e.preventDefault();
     setError(""); setMsg("");
     try {
-      await api("/teams", { method: "POST", body: newTeam });
+      if (teamLogoFile) {
+        const body = new FormData();
+        body.append("name", newTeam.name);
+        body.append("description", newTeam.description);
+        body.append("logo", teamLogoFile);
+        await api("/teams", { method: "POST", body, isForm: true });
+      } else {
+        await api("/teams", { method: "POST", body: newTeam });
+      }
       setMsg(`Team "${newTeam.name}" created.`);
       setNewTeam({ name: "", description: "", logo_url: "" });
+      setTeamLogoFile(null);
       setCreating(false);
       await load();
     } catch (err) {
@@ -849,8 +903,14 @@ function TeamsTab() {
             <Field label="Team name" required>
               <input className="input" value={newTeam.name} onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })} required />
             </Field>
-            <Field label="Logo URL">
-              <input className="input" value={newTeam.logo_url} onChange={(e) => setNewTeam({ ...newTeam, logo_url: e.target.value })} placeholder="https://…" />
+            <Field label="Logo">
+              <ImageSourceInput
+                file={teamLogoFile}
+                url={newTeam.logo_url}
+                onFileChange={setTeamLogoFile}
+                onUrlChange={(logo_url) => setNewTeam((current) => ({ ...current, logo_url }))}
+                onError={setError}
+              />
             </Field>
           </div>
           <Field label="Description" required>
@@ -871,7 +931,7 @@ function TeamsTab() {
                 <div className="cluster" style={{ gap: 12 }}>
                   {t.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img className="team-logo" src={t.logo_url} alt="" style={{ width: 44, height: 44 }} />
+                    <img className="team-logo" src={assetUrl(t.logo_url) || ""} alt="" style={{ width: 44, height: 44 }} />
                   ) : (
                     <div className="team-logo" style={{ width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{t.name.charAt(0)}</div>
                   )}
@@ -982,6 +1042,7 @@ function CertificatesTab() {
   const [name, setName] = useState("");
   const [file, setFile] = useState("");
   const [preview, setPreview] = useState("");
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -999,9 +1060,17 @@ function CertificatesTab() {
     e.preventDefault();
     setError(""); setMsg("");
     try {
-      await api("/certificates/templates", { method: "POST", body: { name: name.trim(), template_file: file.trim(), preview_image: preview.trim() || null } });
+      if (previewFile) {
+        const body = new FormData();
+        body.append("name", name.trim());
+        body.append("template_file", file.trim());
+        body.append("preview", previewFile);
+        await api("/certificates/templates", { method: "POST", body, isForm: true });
+      } else {
+        await api("/certificates/templates", { method: "POST", body: { name: name.trim(), template_file: file.trim(), preview_image: preview.trim() || null } });
+      }
       setMsg("Template created.");
-      setName(""); setFile(""); setPreview("");
+      setName(""); setFile(""); setPreview(""); setPreviewFile(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -1030,8 +1099,14 @@ function CertificatesTab() {
           <Field label="Name" required>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Participation" required />
           </Field>
-          <Field label="Preview image URL">
-            <input className="input" value={preview} onChange={(e) => setPreview(e.target.value)} placeholder="https://…" />
+          <Field label="Preview image">
+            <ImageSourceInput
+              file={previewFile}
+              url={preview}
+              onFileChange={setPreviewFile}
+              onUrlChange={setPreview}
+              onError={setError}
+            />
           </Field>
         </div>
         <Field label="Template file URL" required hint="Link to an HTML/PDF template with {{name}}, {{event_name}}, etc.">
@@ -1045,7 +1120,13 @@ function CertificatesTab() {
         <div className="stack" style={{ gap: 8 }}>
           {templates.map((t) => (
             <div key={t.id} className="split" style={{ padding: "11px 15px", background: "var(--grey-50)", borderRadius: 10 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
+              <div className="cluster" style={{ gap: 10 }}>
+                {t.preview_image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={assetUrl(t.preview_image) || ""} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover" }} />
+                )}
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
+              </div>
               <span className="text-mono text-sm text-muted">{t.creator_name || "—"}</span>
             </div>
           ))}
@@ -1060,6 +1141,7 @@ function CertificatesTab() {
 function SponsorsTab() {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [form, setForm] = useState({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [open, setOpen] = useState(false);
@@ -1076,11 +1158,26 @@ function SponsorsTab() {
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
+    if (!logoFile && !form.logo_url.trim()) {
+      setError("Choose a logo file or provide an image link.");
+      return;
+    }
     setError(""); setMsg("");
     try {
-      await api("/sponsors", { method: "POST", body: { ...form, sort_order: Number(form.sort_order) || 0 } });
+      if (logoFile) {
+        const body = new FormData();
+        body.append("name", form.name);
+        body.append("logo", logoFile);
+        body.append("website", form.website);
+        body.append("description", form.description);
+        body.append("sort_order", String(Number(form.sort_order) || 0));
+        await api("/sponsors", { method: "POST", body, isForm: true });
+      } else {
+        await api("/sponsors", { method: "POST", body: { ...form, sort_order: Number(form.sort_order) || 0 } });
+      }
       setMsg("Sponsor added.");
       setForm({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
+      setLogoFile(null);
       setOpen(false);
       await load();
     } catch (err) {
@@ -1112,7 +1209,15 @@ function SponsorsTab() {
         <form className="card" onSubmit={create} style={{ padding: 24 }}>
           <div className="form-row">
             <Field label="Name" required><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></Field>
-            <Field label="Logo URL" required><input className="input" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…" required /></Field>
+            <Field label="Logo" required>
+              <ImageSourceInput
+                file={logoFile}
+                url={form.logo_url}
+                onFileChange={setLogoFile}
+                onUrlChange={(logo_url) => setForm((current) => ({ ...current, logo_url }))}
+                onError={setError}
+              />
+            </Field>
           </div>
           <div className="form-row">
             <Field label="Website"><input className="input" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://…" /></Field>
@@ -1129,7 +1234,7 @@ function SponsorsTab() {
             <div key={s.id} className="split" style={{ padding: "11px 15px", background: "var(--grey-50)", borderRadius: 10 }}>
               <div className="cluster" style={{ gap: 12 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {s.logo_url && <img src={s.logo_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain" }} />}
+                {s.logo_url && <img src={assetUrl(s.logo_url) || ""} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "contain" }} />}
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
               </div>
               <button className="btn-danger btn-sm" onClick={() => remove(s)}>Delete</button>
@@ -1348,7 +1453,7 @@ function AdminTab() {
             <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
               {president ? president.name : "— none —"}
             </div>
-            {president && <div className="text-mono text-sm text-muted">{president.email}</div>}
+            {president && <div className="text-mono text-sm text-muted">{users.find((candidate) => candidate.id === president.id)?.email ?? ""}</div>}
           </div>
           {president && <button className="btn-danger btn-sm" onClick={removePresident}>Remove</button>}
         </div>
@@ -1379,7 +1484,7 @@ function AdminTab() {
             <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
               {vicePresident ? vicePresident.name : "— none —"}
             </div>
-            {vicePresident && <div className="text-mono text-sm text-muted">{vicePresident.email}</div>}
+            {vicePresident && <div className="text-mono text-sm text-muted">{users.find((candidate) => candidate.id === vicePresident.id)?.email ?? ""}</div>}
           </div>
           {vicePresident && <button className="btn-danger btn-sm" onClick={removeVicePresident}>Remove</button>}
         </div>

@@ -90,7 +90,7 @@ export default function EventsPage() {
                 <Link key={ev.id} href={`/events/${ev.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                   <article className="card card-hover" style={{ height: "100%", display: "flex", flexDirection: "column", gap: 14, padding: 0, overflow: "hidden" }}>
                     {ev.banner_image_url && (
-                      <div style={{ aspectRatio: "21/9", background: "var(--grey-100)" }}>
+                      <div className="event-card-banner">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={assetUrl(ev.banner_image_url) || ""} alt={ev.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       </div>

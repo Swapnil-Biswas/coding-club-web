@@ -17,6 +17,7 @@ import type {
   CertificateType,
 } from "@/app/lib/types";
 import { formatDateTime, formatDate, certTypeLabel } from "@/app/lib/format";
+import ImageSourceInput from "@/app/components/app/ImageSourceInput";
 import {
   Spinner,
   EmptyState,
@@ -99,9 +100,9 @@ function ManageEvent({ id }: { id: number }) {
     <div className="page">
       <div className="section-inner section-inner-wide">
         <div className="split split-start" style={{ marginBottom: 8 }}>
-          <div>
+          <div className="manage-event-heading">
             <span className="section-eyebrow">// Manage event</span>
-            <h1 className="page-title" style={{ fontSize: 32 }}>{event.title}</h1>
+            <h1 className="page-title manage-event-title">{event.title}</h1>
             <div className="cluster" style={{ marginTop: 10 }}>
               <Badge variant={event.status === "published" ? "published" : event.status === "draft" ? "draft" : "completed"} dot>{event.status}</Badge>
               <span className="text-mono text-sm text-muted">{formatDateTime(event.start_datetime)}</span>
@@ -109,6 +110,8 @@ function ManageEvent({ id }: { id: number }) {
           </div>
           <Link href={`/events/${event.id}`} className="btn-ghost btn-sm">View public page →</Link>
         </div>
+
+        <BannerEditor event={event} onUpdated={load} />
 
         <Tabs active={tab} onChange={setTab} tabs={tabs} />
 
@@ -120,6 +123,73 @@ function ManageEvent({ id }: { id: number }) {
         {tab === "announcements" && <AnnouncementsPanel event={event} />}
       </div>
     </div>
+  );
+}
+
+function BannerEditor({ event, onUpdated }: { event: ClubEvent; onUpdated: () => Promise<void> }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!file && !url.trim()) {
+      setError("Choose an image file or provide an image link.");
+      return;
+    }
+    setError("");
+    setMessage("");
+    setBusy(true);
+    try {
+      if (file) {
+        const body = new FormData();
+        body.append("banner", file);
+        await api(`/events/${event.id}/banner`, { method: "POST", body, isForm: true });
+      } else {
+        await api(`/events/${event.id}/banner`, {
+          method: "POST",
+          body: { banner_image_url: url.trim() },
+        });
+      }
+      setFile(null);
+      setUrl("");
+      setMessage("Banner updated.");
+      await onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Banner update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="card" onSubmit={submit} style={{ padding: 20, marginBottom: 24 }}>
+      <div className="split split-start" style={{ gap: 20 }}>
+        {event.banner_image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={assetUrl(event.banner_image_url) || ""} alt="" style={{ width: 120, aspectRatio: "16 / 9", objectFit: "cover", borderRadius: 10 }} />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field label="Event banner" hint="Choose a replacement file or use an image link.">
+            <ImageSourceInput
+              file={file}
+              url={url}
+              onFileChange={setFile}
+              onUrlChange={setUrl}
+              onError={setError}
+              disabled={busy}
+            />
+          </Field>
+          <FormError>{error}</FormError>
+          <FormSuccess>{message}</FormSuccess>
+          <button className="btn-secondary btn-sm" type="submit" disabled={busy || (!file && !url.trim())}>
+            {busy ? "Uploading…" : "Update banner"}
+          </button>
+        </div>
+      </div>
+    </form>
   );
 }
 
@@ -292,7 +362,7 @@ function CheckinPanel({ event }: { event: ClubEvent }) {
             <div className="stat-card-label">Absent</div>
           </div>
         </div>
-        <input className="input" style={{ width: 240 }} placeholder="Filter by name, email, team…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input className="input compact-search" placeholder="Filter by name, email, team…" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <FormError>{error}</FormError>
 
@@ -598,9 +668,9 @@ function LeaderboardPanel({ event }: { event: ClubEvent }) {
       <FormError>{error}</FormError>
       <form className="card" onSubmit={addOrUpdate} style={{ padding: 22 }}>
         <h3 className="card-title" style={{ fontSize: 16, marginBottom: 14 }}>Add / update a team&apos;s score</h3>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Team name" value={team} onChange={(e) => setTeam(e.target.value)} required />
-          <input className="input" style={{ width: 120 }} type="number" placeholder="Score" value={score} onChange={(e) => setScore(e.target.value)} required />
+        <div className="score-control-row">
+          <input className="input score-team-input" placeholder="Team name" value={team} onChange={(e) => setTeam(e.target.value)} required />
+          <input className="input score-value-input" type="number" placeholder="Score" value={score} onChange={(e) => setScore(e.target.value)} required />
           <button className="btn-primary" type="submit" disabled={busy}>{busy ? "…" : "Set score"}</button>
         </div>
         <p className="form-note">Ranks recalculate automatically. Updating an existing team name overwrites its score.</p>

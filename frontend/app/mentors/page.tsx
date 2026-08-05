@@ -5,9 +5,7 @@ import { useAuth } from "@/app/lib/auth";
 import { isCorePlus } from "@/app/lib/roles";
 import type { Mentor } from "@/app/lib/types";
 import { PageHeader, Spinner, EmptyState } from "@/app/components/app/ui";
-import { assetUrl } from "@/app/lib/api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { api, assetUrl } from "@/app/lib/api";
 
 export default function MentorsPage() {
   const { user, ready } = useAuth();
@@ -18,10 +16,7 @@ export default function MentorsPage() {
 
   useEffect(() => {
     if (!ready) return;
-    fetch(`${API_BASE}/mentors`, {
-      credentials: "include",
-    })
-      .then((r) => r.json())
+    api<{ mentors: Mentor[] }>("/mentors")
       .then((d) => setMentors(d.mentors || []))
       .catch(() => setError("Failed to load mentors"));
   }, [ready]);

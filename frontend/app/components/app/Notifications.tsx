@@ -94,8 +94,8 @@ export default function NotificationsBell() {
         {unread > 0 && <span className="notif-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && (
-        <div className="dropdown" style={{ minWidth: 320, maxWidth: 360 }}>
-          <div className="split" style={{ padding: "8px 12px 10px", borderBottom: "1px solid var(--grey-100)", marginBottom: 6, flexWrap: "nowrap" }}>
+        <div className="dropdown notifications-dropdown">
+          <div className="split notifications-dropdown-header" style={{ padding: "8px 12px 10px", borderBottom: "1px solid var(--grey-100)", marginBottom: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--grey-900)" }}>Notifications</span>
             {unread > 0 && (
               <button className="btn-ghost btn-sm" onClick={markAll} style={{ fontSize: 10, padding: "4px 10px" }}>
@@ -128,11 +128,11 @@ export default function NotificationsBell() {
                     {!n.is_read && (
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--grey-900)", flexShrink: 0 }} />
                     )}
-                    <span style={{ fontWeight: 600, fontSize: 12, color: "var(--grey-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere", fontWeight: 600, fontSize: 12, color: "var(--grey-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       {n.type}
                     </span>
                   </span>
-                  <span style={{ fontSize: 13, color: "var(--grey-800)", lineHeight: 1.45, fontWeight: 400 }}>{n.message}</span>
+                  <span style={{ minWidth: 0, overflowWrap: "anywhere", fontSize: 13, color: "var(--grey-800)", lineHeight: 1.45, fontWeight: 400 }}>{n.message}</span>
                   <span style={{ fontSize: 10, color: "var(--grey-400)", fontFamily: "var(--font-mono)" }}>{formatDateTime(n.created_at)}</span>
                 </button>
               ))}

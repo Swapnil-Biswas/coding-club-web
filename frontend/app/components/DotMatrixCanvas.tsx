@@ -139,10 +139,13 @@ export default function DotMatrixCanvas({
     const w = totalCols * gap;
     const h = (charHeight + padDots * 2) * gap;
 
+    const availableWidth = canvas.parentElement?.clientWidth ?? w;
+    const displayScale = window.innerWidth <= 768 ? Math.min(1, availableWidth / w) : 1;
+
     canvas.width = w * dpr;
     canvas.height = h * dpr;
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    canvas.style.width = `${w * displayScale}px`;
+    canvas.style.height = `${h * displayScale}px`;
     ctx.scale(dpr, dpr);
 
     if (dots.length === 0) return;
@@ -152,8 +155,8 @@ export default function DotMatrixCanvas({
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - rect.left;
-      mouse.y = e.clientY - rect.top;
+      mouse.x = (e.clientX - rect.left) * (w / rect.width);
+      mouse.y = (e.clientY - rect.top) * (h / rect.height);
       mouse.active = true;
     };
 

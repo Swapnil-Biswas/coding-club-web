@@ -5,7 +5,37 @@ import type { NextConfig } from "next";
 // so the session cookie is same-origin and CORS never gets involved.
 const BACKEND = process.env.BACKEND_URL || "http://localhost:3001";
 
+const isDevelopment = process.env.NODE_ENV !== "production";
+const scriptSources = ["'self'", "'unsafe-inline'"];
+if (isDevelopment) scriptSources.push("'unsafe-eval'");
+
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  `script-src ${scriptSources.join(" ")}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: ws: wss:",
+  ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
   async rewrites() {
     return [
       { source: "/api/backend/:path*", destination: `${BACKEND}/:path*` },

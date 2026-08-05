@@ -29,12 +29,12 @@ export interface PublicUser {
 export interface AdminUser {
   id: number;
   name: string;
-  email: string;
+  email?: string;
   role: Role;
-  email_verified: boolean;
+  email_verified?: boolean;
   created_at: string;
-  promoted_by: number | null;
-  promoted_at: string | null;
+  promoted_by?: number | null;
+  promoted_at?: string | null;
 }
 
 export interface ClubEvent {
@@ -61,13 +61,9 @@ export interface Registrant {
   name: string;
   email: string;
   team_name: string;
-  qr_code_token?: string;
   checked_in: number | boolean;
   checked_in_at: string | null;
-  checked_in_by?: number | null;
   checked_in_by_name?: string | null;
-  user_name?: string | null;
-  user_email?: string | null;
   created_at?: string;
 }
 
@@ -86,7 +82,6 @@ export interface TeamMember {
   id: number;
   user_id: number;
   name: string;
-  email: string;
   role: Role;
   club_title: string | null;
   designation: string;

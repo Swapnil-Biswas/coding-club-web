@@ -32,6 +32,15 @@ export default function SiteHeader() {
   // Close the mobile menu whenever the route changes.
   useEffect(() => setMobileOpen(false), [pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileOpen]);
+
   return (
     <header
       className="header"
@@ -56,7 +65,9 @@ export default function SiteHeader() {
         <button
           className="mobile-menu-btn"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
           id="mobile-menu-toggle"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -76,7 +87,7 @@ export default function SiteHeader() {
         </button>
       </div>
 
-      {mobileOpen && <MobileMenu />}
+      {mobileOpen && <MobileMenu onClose={() => setMobileOpen(false)} />}
     </header>
   );
 }
@@ -214,53 +225,42 @@ function MenuIcon({ path, extra, third }: { path: string; extra?: React.ReactNod
   );
 }
 
-function MobileMenu() {
+function MobileMenu({ onClose }: { onClose: () => void }) {
   const { user, openAuth, logout } = useAuth();
   const router = useRouter();
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: "var(--header-height)",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(255,255,255,0.98)",
-        backdropFilter: "blur(20px)",
-        display: "flex",
-        flexDirection: "column",
-        padding: "32px 24px",
-        gap: 4,
-        zIndex: 99,
-        animation: "fadeIn 0.3s ease forwards",
-        overflowY: "auto",
-      }}
-    >
+    <nav id="mobile-menu" className="mobile-menu" aria-label="Mobile navigation">
       {publicLinks.map((l) => (
-        <Link key={l.label} href={l.href} className="header-nav-link" style={{ fontSize: 16, padding: "13px 18px" }}>
+        <Link key={l.label} href={l.href} className="header-nav-link mobile-menu-link" onClick={onClose}>
           {l.label}
         </Link>
       ))}
-      <Link href="/join" className="header-nav-link" style={{ fontSize: 16, padding: "13px 18px" }}>
+      <Link href="/join" className="header-nav-link mobile-menu-link" onClick={onClose}>
         JOIN US
       </Link>
       <div style={{ height: 1, background: "var(--grey-100)", margin: "12px 18px" }} />
       {!user ? (
-        <button className="header-cta" onClick={() => openAuth("login")} style={{ margin: "8px 18px", alignSelf: "flex-start" }}>
+        <button
+          className="header-cta mobile-menu-cta"
+          onClick={() => {
+            onClose();
+            openAuth("login");
+          }}
+        >
           SIGN IN
         </button>
       ) : (
         <>
-          <Link href="/account" className="header-nav-link" style={{ fontSize: 16, padding: "13px 18px" }}>
+          <Link href="/account" className="header-nav-link mobile-menu-link" onClick={onClose}>
             ACCOUNT
           </Link>
           {isCorePlus(user) && (
-            <Link href="/checkin" className="header-nav-link" style={{ fontSize: 16, padding: "13px 18px" }}>
+            <Link href="/checkin" className="header-nav-link mobile-menu-link" onClick={onClose}>
               CHECK-IN
             </Link>
           )}
           {isCoreHeadPlus(user) && (
-            <Link href="/dashboard" className="header-nav-link" style={{ fontSize: 16, padding: "13px 18px" }}>
+            <Link href="/dashboard" className="header-nav-link mobile-menu-link" onClick={onClose}>
               DASHBOARD
             </Link>
           )}
@@ -268,6 +268,7 @@ function MobileMenu() {
             className="btn-secondary btn-sm"
             style={{ margin: "12px 18px", alignSelf: "flex-start" }}
             onClick={async () => {
+              onClose();
               await logout();
               router.push("/");
             }}
@@ -276,6 +277,6 @@ function MobileMenu() {
           </button>
         </>
       )}
-    </div>
+    </nav>
   );
 }

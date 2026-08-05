@@ -113,7 +113,7 @@ function EventDetail({ id }: { id: number }) {
         <span className="section-eyebrow">// Event</span>
         <div className="split split-start">
           <div className="flex-1">
-            <h1 className="page-title" style={{ fontSize: 38 }}>{event.title}</h1>
+            <h1 className="page-title event-detail-title">{event.title}</h1>
           </div>
           <Badge variant={event.status === "published" ? "published" : event.status === "draft" ? "draft" : "completed"} dot>
             {event.status}

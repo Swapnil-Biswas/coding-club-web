@@ -103,20 +103,7 @@ export default function Hero() {
           </div>
 
           {/* ── Something Big Is Coming teaser banner ─────────────── */}
-          <div
-            style={{
-              marginTop: "2rem",
-              padding: "14px 20px",
-              borderRadius: 10,
-              background: "linear-gradient(100deg, rgba(255,215,0,0.07) 0%, rgba(255,165,0,0.04) 100%)",
-              border: "1.5px solid rgba(255,215,0,0.22)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 12,
-              maxWidth: 420,
-              boxShadow: "0 0 24px 0 rgba(255,215,0,0.05)",
-            }}
-          >
+          <div className="hero-teaser">
             <span
               style={{
                 display: "inline-block",

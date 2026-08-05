@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import RevealOnScroll from "./RevealOnScroll";
 import GlyphDivider from "./GlyphDivider";
 import type { Project, ProjectCategory } from "@/app/lib/types";
+import { api } from "@/app/lib/api";
 
 const CATEGORIES: { key: ProjectCategory | "all"; label: string }[] = [
   { key: "all",         label: "All" },
@@ -14,17 +15,13 @@ const CATEGORIES: { key: ProjectCategory | "all"; label: string }[] = [
   { key: "other",       label: "Other" },
 ];
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState<ProjectCategory | "all">("all");
 
   useEffect(() => {
-    fetch(`${API_BASE}/projects`)
-      .then((r) => r.json())
+    api<{ projects: Project[] }>("/projects")
       .then((d) => setProjects(d.projects || []))
       .catch(() => {})
       .finally(() => setLoading(false));

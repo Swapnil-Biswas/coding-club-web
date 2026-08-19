@@ -1,6 +1,6 @@
 import { db } from '../db.js';
 import { HttpError } from '../lib/errors.js';
-import { deleteManagedImageIfUnreferenced, validateImageReference } from '../lib/imageUpload.js';
+import { enqueueManagedImageDeletion, validateImageReference } from '../lib/imageUpload.js';
 import { canManagePhoto, canFeatureOrReorder, canManageAllPhotos } from '../lib/permissions.js';
 import type { ActorLike, PhotoRow, PublicPhoto } from '../lib/types.js';
 
@@ -141,7 +141,7 @@ export function deletePhoto(actor: ActorLike, id: Id): { ok: true } {
     throw new HttpError(403, 'forbidden');
   }
   db.prepare(`DELETE FROM photos WHERE id = ?`).run(Number(id));
-  deleteManagedImageIfUnreferenced(photo.image_url);
+  enqueueManagedImageDeletion(photo.image_url);
   return { ok: true };
 }
 

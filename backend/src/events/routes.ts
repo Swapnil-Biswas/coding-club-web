@@ -5,10 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireAuth } from '../auth/middleware.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
   deleteManagedImageIfUnreferenced,
-  imageUpload,
+  uploadSingleImage,
   publicImageReference,
   requireSingleImageSource,
   saveImageFile,
@@ -115,8 +114,7 @@ eventsRouter.post(
     if (!canManageEvent(req.user, event)) throw new HttpError(403, 'forbidden');
     next();
   }),
-  admitImageUpload,
-  imageUpload.single('banner'),
+  uploadSingleImage('banner'),
   asyncHandler(async (req, res) => {
     const event = getEventById(Number(req.params.id));
     if (!event) throw new HttpError(404, 'event not found');
@@ -125,7 +123,7 @@ eventsRouter.post(
     requireSingleImageSource(req.file, bannerUrl, 'banner_image_url');
     const previous = publicImageReference(event.banner_image_path, 'events');
     const reference = req.file
-      ? saveImageFile(req.file, 'events')
+      ? await saveImageFile(req.file, 'events')
       : validateImageUrl(bannerUrl, 'banner_image_url');
 
     try {

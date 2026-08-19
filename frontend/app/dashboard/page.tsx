@@ -18,6 +18,7 @@ import type {
   ProjectCategory,
   ProjectStatus,
   Mentor,
+  Photo,
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
 import ImageSourceInput from "@/app/components/app/ImageSourceInput";
@@ -68,6 +69,7 @@ const TABS = [
   { id: "events",    label: "Events" },
   { id: "teams",     label: "Teams" },
   { id: "certificates", label: "Certificates" },
+  { id: "gallery",   label: "Gallery" },
   { id: "sponsors",  label: "Sponsors" },
   { id: "requests",  label: "Join Requests" },
   { id: "content",   label: "About Page" },
@@ -117,9 +119,10 @@ function DashboardInner() {
   const admin = isAdmin(user);
   const [tab, setTab] = useState("overview");
 
-  const visibleTabs = TABS.filter((t) =>
-    t.id === "admin" || t.id === "projects" ? admin : true
-  );
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "admin" || t.id === "projects" || t.id === "mentors") return admin;
+    return true;
+  });
 
   return (
     <div className="page">
@@ -135,6 +138,7 @@ function DashboardInner() {
         {tab === "events" && <EventsTab />}
         {tab === "teams" && <TeamsTab />}
         {tab === "certificates" && <CertificatesTab />}
+        {tab === "gallery" && <GalleryTab />}
         {tab === "sponsors" && <SponsorsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "content" && <ContentTab />}
@@ -1774,6 +1778,102 @@ function ProjectsTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================ GALLERY ============================ */
+function GalleryTab() {
+  const { user } = useAuth();
+  const [photos, setPhotos] = useState<Photo[] | null>(null);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  async function load() {
+    try {
+      const data = await api<{ photos: Photo[] }>("/gallery?limit=200");
+      setPhotos(data.photos);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load gallery");
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function remove(photo: Photo) {
+    if (!confirm(`Delete "${photo.caption || "this photo"}"? This cannot be undone.`)) return;
+    setDeleting(photo.id);
+    try {
+      await api(`/photos/${photo.id}`, { method: "DELETE" });
+      setPhotos((prev) => prev ? prev.filter((p) => p.id !== photo.id) : prev);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (photos === null && !error) return <Spinner label="Loading gallery" />;
+  if (error) return <EmptyState title="Couldn't load gallery" body={error} />;
+  if (!photos || photos.length === 0) return <EmptyState title="No photos yet" body="Photos uploaded by members will appear here." />;
+
+  return (
+    <div className="stack-lg">
+      <div className="split">
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Gallery photos</h2>
+          <p className="text-muted" style={{ fontSize: 13 }}>
+            {photos.length} photo{photos.length !== 1 ? "s" : ""}. As a core head you can delete photos uploaded by your team members; admins can delete any photo.
+          </p>
+        </div>
+      </div>
+
+      <div className="gallery-grid" style={{ gap: 12 }}>
+        {photos.map((photo) => {
+          const isMine = user && photo.uploaded_by === user.id;
+          const isCoreH = user && isCoreHeadPlus(user);
+          const showDelete = !!(isMine || isCoreH);
+
+          return (
+            <div key={photo.id} className="gallery-item" style={{ position: "relative" }}>
+              {photo.is_featured && (
+                <div className="gallery-featured">
+                  <Badge variant="dark">★ Featured</Badge>
+                </div>
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={assetUrl(photo.image_url) || ""}
+                alt={photo.caption || "Club photo"}
+                loading="lazy"
+                style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <div className="gallery-item-cap">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {photo.caption || "—"}
+                    </span>
+                    {photo.uploader_name && (
+                      <span style={{ fontSize: 11, opacity: 0.6 }}>by {photo.uploader_name}</span>
+                    )}
+                  </div>
+                  {showDelete && (
+                    <button
+                      className="gallery-delete-btn"
+                      onClick={() => remove(photo)}
+                      disabled={deleting === photo.id}
+                      style={{ flexShrink: 0 }}
+                    >
+                      {deleting === photo.id ? "…" : "Delete"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -3,10 +3,9 @@ import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { db } from '../db.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
   deleteManagedImageIfUnreferenced,
-  imageUpload,
+  uploadSingleImage,
   requireSingleImageSource,
   saveImageFile,
   validateImageUrl,
@@ -45,15 +44,14 @@ teamsRouter.post(
   '/',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('logo'),
+  uploadSingleImage('logo'),
   asyncHandler(async (req, res) => {
     const logoUrl = req.body?.logo_url;
     if (req.file && String(logoUrl ?? '').trim()) {
       requireSingleImageSource(req.file, logoUrl, 'logo_url');
     }
     const reference = req.file
-      ? saveImageFile(req.file, 'teams')
+      ? await saveImageFile(req.file, 'teams')
       : logoUrl
         ? validateImageUrl(logoUrl, 'logo_url')
         : null;
@@ -73,8 +71,7 @@ teamsRouter.patch(
   '/:id',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('logo'),
+  uploadSingleImage('logo'),
   asyncHandler(async (req, res) => {
     const existing = getTeamById(req.params.id!);
     if (!existing) throw new HttpError(404, 'team not found');
@@ -84,7 +81,7 @@ teamsRouter.patch(
     }
     const hasNewSource = Boolean(req.file || String(logoUrl ?? '').trim());
     const reference = req.file
-      ? saveImageFile(req.file, 'teams')
+      ? await saveImageFile(req.file, 'teams')
       : hasNewSource
         ? validateImageUrl(logoUrl, 'logo_url')
         : undefined;

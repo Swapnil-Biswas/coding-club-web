@@ -1,6 +1,6 @@
 import { db } from '../db.js';
 import { HttpError } from '../lib/errors.js';
-import { validateImageReference } from '../lib/imageUpload.js';
+import { enqueueManagedImageDeletion, validateImageReference } from '../lib/imageUpload.js';
 import { positiveId } from '../lib/validation.js';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'node:fs';

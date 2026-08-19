@@ -1,6 +1,10 @@
 import { db } from '../db.js';
 import { HttpError } from '../lib/errors.js';
-import { publicImageReference, validateImageReference } from '../lib/imageUpload.js';
+import {
+  enqueueManagedImageDeletion,
+  publicImageReference,
+  validateImageReference,
+} from '../lib/imageUpload.js';
 import { canManageSponsors } from '../lib/permissions.js';
 import type { ActorLike, PublicSponsor, SponsorRow } from '../lib/types.js';
 import { httpUrl, integerValue, positiveId, stringValue } from '../lib/validation.js';

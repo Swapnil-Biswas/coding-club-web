@@ -3,9 +3,8 @@ import type { AuthRequest, CertificateType } from '../lib/types.js';
 import type { GenerateCertificatePayload, TemplatePayload } from './service.js';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
-  imageUpload,
+  uploadSingleImage,
   saveImageFile,
   validateImageUrl,
 } from '../lib/imageUpload.js';
@@ -72,15 +71,14 @@ certificatesRouter.post(
   '/certificates/templates',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('preview'),
+  uploadSingleImage('preview'),
   asyncHandler(async (req, res) => {
     const previewUrl = req.body?.preview_image;
     if (req.file && String(previewUrl ?? '').trim()) {
       throw new HttpError(400, 'Choose either an image file or preview_image, not both');
     }
     const reference = req.file
-      ? saveImageFile(req.file, 'template-previews')
+      ? await saveImageFile(req.file, 'template-previews')
       : previewUrl
         ? validateImageUrl(previewUrl, 'preview_image')
         : null;
@@ -100,8 +98,7 @@ certificatesRouter.patch(
   '/certificates/templates/:id',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('preview'),
+  uploadSingleImage('preview'),
   asyncHandler(async (req, res) => {
     const existing = getTemplateById(req.params.id!);
     if (!existing) throw new HttpError(404, 'template not found');
@@ -110,7 +107,7 @@ certificatesRouter.patch(
       throw new HttpError(400, 'Choose either an image file or preview_image, not both');
     }
     const reference = req.file
-      ? saveImageFile(req.file, 'template-previews')
+      ? await saveImageFile(req.file, 'template-previews')
       : String(previewUrl ?? '').trim()
         ? validateImageUrl(previewUrl, 'preview_image')
         : undefined;

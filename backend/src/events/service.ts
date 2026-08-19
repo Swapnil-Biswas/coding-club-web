@@ -1,6 +1,6 @@
 import { db } from '../db.js';
 import { HttpError } from '../lib/errors.js';
-import { publicImageReference } from '../lib/imageUpload.js';
+import { enqueueManagedImageDeletion, publicImageReference } from '../lib/imageUpload.js';
 import type { ActorLike, EventRow, EventStatus, EventVisibility, PublicEvent, Role } from '../lib/types.js';
 import { httpUrl } from '../lib/validation.js';
 

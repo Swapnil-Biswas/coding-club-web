@@ -2,10 +2,9 @@ import { Router } from 'express';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
   deleteManagedImageIfUnreferenced,
-  imageUpload,
+  uploadSingleImage,
   requireSingleImageSource,
   saveImageFile,
   validateImageUrl,
@@ -30,13 +29,12 @@ sponsorsRouter.post(
   '/',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('logo'),
+  uploadSingleImage('logo'),
   asyncHandler(async (req, res) => {
     const logoUrl = req.body?.logo_url;
     requireSingleImageSource(req.file, logoUrl, 'logo_url');
     const reference = req.file
-      ? saveImageFile(req.file, 'sponsors')
+      ? await saveImageFile(req.file, 'sponsors')
       : validateImageUrl(logoUrl, 'logo_url');
 
     try {
@@ -54,8 +52,7 @@ sponsorsRouter.patch(
   '/:id',
   requireAuth,
   requireRole('core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('logo'),
+  uploadSingleImage('logo'),
   asyncHandler(async (req, res) => {
     const existing = getSponsorById(Number(req.params.id));
     if (!existing) throw new HttpError(404, 'sponsor not found');
@@ -65,7 +62,7 @@ sponsorsRouter.patch(
     }
     const hasNewSource = Boolean(req.file || String(logoUrl ?? '').trim());
     const reference = req.file
-      ? saveImageFile(req.file, 'sponsors')
+      ? await saveImageFile(req.file, 'sponsors')
       : hasNewSource
         ? validateImageUrl(logoUrl, 'logo_url')
         : undefined;

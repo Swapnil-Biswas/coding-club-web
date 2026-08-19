@@ -8,10 +8,10 @@ import {
 } from '../auth/middleware.js';
 import { publicProfile, publicUser, findUserById, changePassword } from '../auth/service.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
   deleteManagedImageIfUnreferenced,
-  imageUpload,
+  enqueueManagedImageDeletion,
+  uploadSingleImage,
   publicImageReference,
   requireSingleImageSource,
   saveImageFile,
@@ -77,6 +77,7 @@ usersRouter.delete(
         .map((photo) => photo.image_url),
     ];
     db.transaction(() => {
+      new Set(managedImages).forEach(enqueueManagedImageDeletion);
       // self-referential: users promoted by this user
       db.prepare(`UPDATE users SET promoted_by = NULL WHERE promoted_by = ?`).run(targetId);
       // events they organised — reassign to the acting admin (organizer_id is NOT NULL)
@@ -91,10 +92,11 @@ usersRouter.delete(
       db.prepare(`UPDATE leaderboards SET updated_by = ? WHERE updated_by = ?`).run(req.user!.id, targetId);
       // announcements they posted (NOT NULL — reassign to acting admin)
       db.prepare(`UPDATE announcements SET posted_by = ? WHERE posted_by = ?`).run(req.user!.id, targetId);
+      db.prepare(`UPDATE projects SET created_by = ? WHERE created_by = ?`).run(req.user!.id, targetId);
+      db.prepare(`UPDATE mentors SET created_by = ? WHERE created_by = ?`).run(req.user!.id, targetId);
       // now the user row can be safely removed (CASCADE / SET NULL handle the rest)
       db.prepare(`DELETE FROM users WHERE id = ?`).run(targetId);
     })();
-    new Set(managedImages).forEach(deleteManagedImageIfUnreferenced);
 
     res.json({ ok: true });
   }),
@@ -103,15 +105,14 @@ usersRouter.delete(
 usersRouter.post(
   '/me/photo',
   requireAuth,
-  admitImageUpload,
-  imageUpload.single('photo'),
+  uploadSingleImage('photo'),
   asyncHandler(async (req, res) => {
     const photoUrl = req.body?.photo_url;
     requireSingleImageSource(req.file, photoUrl, 'photo_url');
 
     const previous = publicImageReference(req.user!.profile_photo_path);
     const reference = req.file
-      ? saveImageFile(req.file, 'profiles')
+      ? await saveImageFile(req.file, 'profiles')
       : validateImageUrl(photoUrl, 'photo_url');
 
     try {

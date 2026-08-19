@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, assetUrl } from "@/app/lib/api";
 import { useAuth } from "@/app/lib/auth";
-import { roleAtLeast, isSuperCoreHead } from "@/app/lib/roles";
+import { roleAtLeast } from "@/app/lib/roles";
 import type { Photo, ClubEvent } from "@/app/lib/types";
 import ImageSourceInput from "@/app/components/app/ImageSourceInput";
 import { Spinner, EmptyState, PageHeader, Modal, Field, FormError, Badge, Tabs } from "@/app/components/app/ui";
@@ -18,7 +18,6 @@ export default function GalleryPage() {
   const [error, setError] = useState("");
 
   const canUpload = !!user && roleAtLeast(user.role, "member");
-  const canModerateAny = user && isSuperCoreHead(user);
 
   async function load() {
     try {
@@ -80,9 +79,7 @@ export default function GalleryPage() {
               <GalleryItem
                 key={p.id}
                 photo={p}
-                canDelete={!!user && (p.uploaded_by === user.id || !!canModerateAny)}
                 onOpen={() => setLightbox(p)}
-                onChanged={load}
               />
             ))}
           </div>
@@ -117,26 +114,11 @@ export default function GalleryPage() {
 
 function GalleryItem({
   photo,
-  canDelete,
   onOpen,
-  onChanged,
 }: {
   photo: Photo;
-  canDelete: boolean;
   onOpen: () => void;
-  onChanged: () => void;
 }) {
-  async function remove(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm("Delete this photo?")) return;
-    try {
-      await api(`/photos/${photo.id}`, { method: "DELETE" });
-      onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
-    }
-  }
-
   return (
     <div className="gallery-item" onClick={onOpen} style={{ cursor: "pointer" }}>
       {photo.is_featured && (
@@ -147,17 +129,7 @@ function GalleryItem({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={assetUrl(photo.image_url) || ""} alt={photo.caption || "Club photo"} loading="lazy" />
       <div className="gallery-item-cap">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 8 }}>
-          <span>{photo.caption || "—"}</span>
-          {canDelete && (
-            <button
-              onClick={remove}
-              className="gallery-delete-btn"
-            >
-              Delete
-            </button>
-          )}
-        </div>
+        <span>{photo.caption || "—"}</span>
       </div>
     </div>
   );

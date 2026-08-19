@@ -2,10 +2,9 @@ import { Router } from 'express';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
   deleteManagedImageIfUnreferenced,
-  imageUpload,
+  uploadSingleImage,
   requireSingleImageSource,
   saveImageFile,
   validateImageUrl,
@@ -54,15 +53,14 @@ mentorsRouter.post(
   '/',
   requireAuth,
   requireRole('admin'),
-  admitImageUpload,
-  imageUpload.single('photo'),
+  uploadSingleImage('photo'),
   asyncHandler(async (req, res) => {
     const photoUrl = req.body?.photo_url;
     if (req.file && String(photoUrl ?? '').trim()) {
       requireSingleImageSource(req.file, photoUrl, 'photo_url');
     }
     const reference = req.file
-      ? saveImageFile(req.file, 'mentors')
+      ? await saveImageFile(req.file, 'mentors')
       : photoUrl
         ? validateImageUrl(photoUrl, 'photo_url')
         : null;
@@ -83,8 +81,7 @@ mentorsRouter.patch(
   '/:id',
   requireAuth,
   requireRole('admin'),
-  admitImageUpload,
-  imageUpload.single('photo'),
+  uploadSingleImage('photo'),
   asyncHandler(async (req, res) => {
     const existing = getMentorById(Number(req.params.id), req.user);
     if (!existing) throw new HttpError(404, 'mentor not found');
@@ -94,7 +91,7 @@ mentorsRouter.patch(
     }
     const hasNewSource = Boolean(req.file || String(photoUrl ?? '').trim());
     const reference = req.file
-      ? saveImageFile(req.file, 'mentors')
+      ? await saveImageFile(req.file, 'mentors')
       : hasNewSource
         ? validateImageUrl(photoUrl, 'photo_url')
         : undefined;

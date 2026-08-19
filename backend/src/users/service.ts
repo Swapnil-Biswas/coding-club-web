@@ -1,5 +1,6 @@
 import { db } from '../db.js';
 import { HttpError } from '../lib/errors.js';
+import { enqueueManagedImageDeletion } from '../lib/imageUpload.js';
 import { ROLES, publicUser, findUserById, changePassword } from '../auth/service.js';
 import type { AdminUser, DirectoryUser, PublicUser, Role, SessionUser, UserRow } from '../lib/types.js';
 

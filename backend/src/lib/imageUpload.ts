@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
+import sharp from 'sharp';
+import type * as sharpNs from 'sharp';
 import type { RequestHandler } from 'express';
 import { db } from '../db.js';
 import { HttpError } from './errors.js';
@@ -11,35 +13,28 @@ export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
 export const IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 const IMAGE_MAX_DIMENSION = 12_000;
 const IMAGE_MAX_PIXELS = 40_000_000;
-const IMAGE_UPLOAD_CONCURRENCY = 4;
-
-let activeImageUploads = 0;
-
-export const admitImageUpload: RequestHandler = (req, res, next) => {
-  if (activeImageUploads >= IMAGE_UPLOAD_CONCURRENCY) {
-    next(new HttpError(503, 'Image uploads are busy, please try again shortly'));
-    return;
-  }
-  activeImageUploads++;
-  let released = false;
-  const release = (): void => {
-    if (released) return;
-    released = true;
-    activeImageUploads--;
-  };
-  res.once('finish', release);
-  res.once('close', release);
-  next();
-};
+const IMAGE_PROCESSING_CONCURRENCY = 4;
+const IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
 
 const ALLOWED_MIME = new Set<string>(IMAGE_ACCEPTED_TYPES);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsRoot = path.resolve(__dirname, '..', '..', 'uploads');
+const temporaryUploadsDirectory = path.join(uploadsRoot, '.tmp');
+fs.mkdirSync(temporaryUploadsDirectory, { recursive: true });
+
+let activeImageProcessing = 0;
 
 export type ImagePurpose = 'profiles' | 'gallery' | 'events' | 'mentors' | 'teams' | 'sponsors' | 'template-previews';
 
-export const imageUpload = multer({
-  storage: multer.memoryStorage(),
+type SupportedFormat = 'jpeg' | 'png' | 'webp';
+
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, temporaryUploadsDirectory),
+  filename: (_req, _file, cb) => cb(null, crypto.randomUUID()),
+});
+
+const imageUpload = multer({
+  storage: uploadStorage,
   limits: {
     fileSize: IMAGE_MAX_BYTES,
     files: 1,
@@ -57,164 +52,112 @@ export const imageUpload = multer({
   },
 });
 
-interface ImageMetadata {
-  mime: string;
-  extension: string;
-  width: number;
-  height: number;
+async function removeFile(filePath: string | undefined): Promise<void> {
+  if (!filePath) return;
+  try {
+    await fs.promises.rm(filePath, { force: true });
+  } catch (error) {
+    console.error('[uploads] failed to remove file', { filePath, error });
+  }
 }
 
-function jpegDimensions(buffer: Buffer): { width: number; height: number } | null {
-  let offset = 2;
-  let dimensions: { width: number; height: number } | null = null;
-  let foundScan = false;
-  while (offset + 4 <= buffer.length) {
-    if (buffer[offset] !== 0xff) return null;
-    while (buffer[offset] === 0xff) offset++;
-    const marker = buffer[offset++]!;
-    if (marker === 0xd9) break;
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-    if (offset + 2 > buffer.length) return null;
-    const segmentLength = buffer.readUInt16BE(offset);
-    if (segmentLength < 2 || offset + segmentLength > buffer.length) return null;
-    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
-      if (segmentLength < 8) return null;
-      const components = buffer[offset + 7]!;
-      if (components < 1 || segmentLength !== 8 + components * 3) return null;
-      dimensions = {
-        height: buffer.readUInt16BE(offset + 3),
-        width: buffer.readUInt16BE(offset + 5),
-      };
+export function uploadSingleImage(fieldName: string): RequestHandler {
+  const parse = imageUpload.single(fieldName);
+  return (req, res, next) => {
+    const timeout = setTimeout(() => {
+      if (!req.destroyed) req.destroy(new Error('Image upload timed out'));
+    }, IMAGE_UPLOAD_TIMEOUT_MS);
+    timeout.unref();
+
+    let cleaned = false;
+    const cleanup = (): void => {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeout(timeout);
+      void removeFile(req.file?.path);
+    };
+    res.once('finish', cleanup);
+    res.once('close', cleanup);
+    req.once('aborted', cleanup);
+    req.once('error', cleanup);
+
+    parse(req, res, (error: unknown) => {
+      clearTimeout(timeout);
+      if (error) {
+        cleanup();
+        next(error);
+        return;
+      }
+      next();
+    });
+  };
+}
+
+function detectedMime(format: SupportedFormat): string {
+  return format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
+}
+
+function imageExtension(format: SupportedFormat): string {
+  return format === 'jpeg' ? 'jpg' : format;
+}
+
+function isSupportedFormat(format: string | undefined): format is SupportedFormat {
+  return format === 'jpeg' || format === 'png' || format === 'webp';
+}
+
+export async function saveImageFile(file: Express.Multer.File, purpose: ImagePurpose): Promise<string> {
+  if (activeImageProcessing >= IMAGE_PROCESSING_CONCURRENCY) {
+    throw new HttpError(503, 'Image uploads are busy, please try again shortly');
+  }
+  activeImageProcessing++;
+
+  try {
+    let metadata: sharpNs.Metadata;
+    let stats: sharpNs.Stats;
+    try {
+      const image = sharp(file.path, {
+        animated: true,
+        failOn: 'error',
+        limitInputPixels: IMAGE_MAX_PIXELS,
+      });
+      [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (/pixel limit|image exceeds pixel limit|dimensions/i.test(message)) {
+        throw new HttpError(413, 'Image dimensions are too large');
+      }
+      throw new HttpError(415, 'The selected file is not a valid JPEG, PNG, or WebP image');
     }
-    if (marker === 0xda) {
-      foundScan = true;
-      break;
+
+    if (!isSupportedFormat(metadata.format) || detectedMime(metadata.format) !== file.mimetype) {
+      throw new HttpError(415, 'The selected file is not a valid JPEG, PNG, or WebP image');
     }
-    offset += segmentLength;
-  }
-  if (!dimensions || !foundScan || buffer.length < 4) return null;
-  if (buffer[buffer.length - 2] !== 0xff || buffer[buffer.length - 1] !== 0xd9) return null;
-  return dimensions;
-}
 
-function pngDimensions(buffer: Buffer): { width: number; height: number } | null {
-  let offset = 8;
-  let dimensions: { width: number; height: number } | null = null;
-  let foundData = false;
-  while (offset + 12 <= buffer.length) {
-    const length = buffer.readUInt32BE(offset);
-    const type = buffer.subarray(offset + 4, offset + 8).toString('ascii');
-    const end = offset + 12 + length;
-    if (end > buffer.length) return null;
-    if (!dimensions) {
-      if (type !== 'IHDR' || length !== 13) return null;
-      dimensions = {
-        width: buffer.readUInt32BE(offset + 8),
-        height: buffer.readUInt32BE(offset + 12),
-      };
-    } else if (type === 'IDAT') {
-      foundData = true;
-    } else if (type === 'IEND') {
-      return length === 0 && foundData && end === buffer.length ? dimensions : null;
+    const width = metadata.width ?? 0;
+    const height = metadata.pageHeight ?? metadata.height ?? 0;
+    const pages = metadata.pages ?? 1;
+    const decodedPixels = width * height * pages;
+    if (
+      width < 1 ||
+      height < 1 ||
+      width > IMAGE_MAX_DIMENSION ||
+      height > IMAGE_MAX_DIMENSION ||
+      decodedPixels > IMAGE_MAX_PIXELS ||
+      stats.channels.length === 0
+    ) {
+      throw new HttpError(413, 'Image dimensions are too large');
     }
-    offset = end;
-  }
-  return null;
-}
 
-function webpDimensions(buffer: Buffer): { width: number; height: number } | null {
-  if (buffer.length < 20 || buffer.readUInt32LE(4) + 8 !== buffer.length) return null;
-  let offset = 12;
-  let extendedDimensions: { width: number; height: number } | null = null;
-  while (offset + 8 <= buffer.length) {
-    const chunkType = buffer.subarray(offset, offset + 4).toString('ascii');
-    const chunkSize = buffer.readUInt32LE(offset + 4);
-    const dataOffset = offset + 8;
-    const end = dataOffset + chunkSize;
-    if (end > buffer.length) return null;
-    if (chunkType === 'VP8X') {
-      if (chunkSize !== 10) return null;
-      extendedDimensions = {
-        width: 1 + buffer.readUIntLE(dataOffset + 4, 3),
-        height: 1 + buffer.readUIntLE(dataOffset + 7, 3),
-      };
-    } else if (chunkType === 'VP8L') {
-      if (chunkSize < 5 || buffer[dataOffset] !== 0x2f) return null;
-      const bits = buffer.readUInt32LE(dataOffset + 1);
-      return extendedDimensions ?? {
-        width: (bits & 0x3fff) + 1,
-        height: ((bits >>> 14) & 0x3fff) + 1,
-      };
-    } else if (chunkType === 'VP8 ') {
-      if (
-        chunkSize < 10 ||
-        buffer[dataOffset + 3] !== 0x9d ||
-        buffer[dataOffset + 4] !== 0x01 ||
-        buffer[dataOffset + 5] !== 0x2a
-      ) return null;
-      return extendedDimensions ?? {
-        width: buffer.readUInt16LE(dataOffset + 6) & 0x3fff,
-        height: buffer.readUInt16LE(dataOffset + 8) & 0x3fff,
-      };
-    } else if (chunkType === 'ANMF' && extendedDimensions && chunkSize >= 16) {
-      return extendedDimensions;
-    }
-    offset = end + (chunkSize % 2);
+    const directory = path.join(uploadsRoot, purpose);
+    await fs.promises.mkdir(directory, { recursive: true });
+    const filename = `${crypto.randomUUID()}.${imageExtension(metadata.format)}`;
+    const filePath = path.join(directory, filename);
+    await fs.promises.rename(file.path, filePath);
+    return `/uploads/${purpose}/${filename}`;
+  } finally {
+    activeImageProcessing--;
+    await removeFile(file.path);
   }
-  return null;
-}
-
-function detectedImageType(buffer: Buffer): ImageMetadata | null {
-  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-    const dimensions = jpegDimensions(buffer);
-    return dimensions ? { mime: 'image/jpeg', extension: 'jpg', ...dimensions } : null;
-  }
-  if (
-    buffer.length >= 8 &&
-    buffer[0] === 0x89 &&
-    buffer[1] === 0x50 &&
-    buffer[2] === 0x4e &&
-    buffer[3] === 0x47 &&
-    buffer[4] === 0x0d &&
-    buffer[5] === 0x0a &&
-    buffer[6] === 0x1a &&
-    buffer[7] === 0x0a
-  ) {
-    const dimensions = pngDimensions(buffer);
-    return dimensions ? { mime: 'image/png', extension: 'png', ...dimensions } : null;
-  }
-  if (
-    buffer.length >= 20 &&
-    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-  ) {
-    const dimensions = webpDimensions(buffer);
-    return dimensions ? { mime: 'image/webp', extension: 'webp', ...dimensions } : null;
-  }
-  return null;
-}
-
-export function saveImageFile(file: Express.Multer.File, purpose: ImagePurpose): string {
-  const detected = detectedImageType(file.buffer);
-  if (!detected || detected.mime !== file.mimetype) {
-    throw new HttpError(415, 'The selected file is not a valid JPEG, PNG, or WebP image');
-  }
-  if (
-    detected.width < 1 ||
-    detected.height < 1 ||
-    detected.width > IMAGE_MAX_DIMENSION ||
-    detected.height > IMAGE_MAX_DIMENSION ||
-    detected.width * detected.height > IMAGE_MAX_PIXELS
-  ) {
-    throw new HttpError(413, 'Image dimensions are too large');
-  }
-
-  const directory = path.join(uploadsRoot, purpose);
-  fs.mkdirSync(directory, { recursive: true });
-  const filename = `${crypto.randomUUID()}.${detected.extension}`;
-  const filePath = path.join(directory, filename);
-  fs.writeFileSync(filePath, file.buffer, { flag: 'wx' });
-  return `/uploads/${purpose}/${filename}`;
 }
 
 export function validateImageUrl(value: unknown, fieldName: string): string {
@@ -247,42 +190,106 @@ export function publicImageReference(value: string | null | undefined, legacyDir
   return `${prefix}${value}`;
 }
 
-export function deleteManagedImage(reference: string | null | undefined): void {
-  if (!reference?.startsWith('/uploads/')) return;
+function managedImagePath(reference: string | null | undefined): { reference: string; filePath: string } | null {
+  if (!reference?.startsWith('/uploads/')) return null;
   const relativePath = reference.slice('/uploads/'.length);
-  const resolved = path.resolve(uploadsRoot, relativePath);
+  if (!relativePath) return null;
+  const filePath = path.resolve(uploadsRoot, relativePath);
   const rootPrefix = `${uploadsRoot}${path.sep}`;
-  if (!resolved.startsWith(rootPrefix)) return;
-  try {
-    fs.unlinkSync(resolved);
-  } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
-      console.error('[uploads] failed to remove image', { reference, error });
+  if (!filePath.startsWith(rootPrefix)) return null;
+  const canonicalRelativePath = path.relative(uploadsRoot, filePath).split(path.sep).join('/');
+  return { reference: `/uploads/${canonicalRelativePath}`, filePath };
+}
+
+function isManagedImageReferenced(reference: string): boolean {
+  const legacyEventReference = reference.startsWith('/uploads/events/')
+    ? reference.slice('/uploads/events/'.length)
+    : null;
+  return Boolean(db.prepare(`
+    SELECT 1 FROM users WHERE profile_photo_path = ?
+    UNION ALL SELECT 1 FROM events WHERE banner_image_path = ? OR banner_image_path = ?
+    UNION ALL SELECT 1 FROM teams WHERE logo_url = ?
+    UNION ALL SELECT 1 FROM photos WHERE image_url = ?
+    UNION ALL SELECT 1 FROM sponsors WHERE logo_url = ?
+    UNION ALL SELECT 1 FROM certificate_templates WHERE preview_image = ?
+    UNION ALL SELECT 1 FROM mentors WHERE photo_url = ?
+    LIMIT 1
+  `).get(
+    reference,
+    reference,
+    legacyEventReference,
+    reference,
+    reference,
+    reference,
+    reference,
+    reference,
+  ));
+}
+
+export function enqueueManagedImageDeletion(reference: string | null | undefined): void {
+  const managed = managedImagePath(reference);
+  if (!managed) return;
+  db.prepare(`
+    INSERT INTO managed_image_deletion_queue(reference)
+    VALUES (?)
+    ON CONFLICT(reference) DO NOTHING
+  `).run(managed.reference);
+}
+
+interface DeletionQueueRow {
+  reference: string;
+  attempts: number;
+}
+
+export async function processManagedImageDeletionQueue(limit = 50): Promise<void> {
+  const rows = db.prepare<DeletionQueueRow>(`
+    SELECT reference, attempts
+    FROM managed_image_deletion_queue
+    WHERE next_attempt_at <= unixepoch()
+    ORDER BY next_attempt_at, created_at
+    LIMIT ?
+  `).all(limit);
+
+  for (const row of rows) {
+    const managed = managedImagePath(row.reference);
+    if (!managed || isManagedImageReferenced(row.reference)) {
+      db.prepare(`DELETE FROM managed_image_deletion_queue WHERE reference = ?`).run(row.reference);
+      continue;
+    }
+    try {
+      await fs.promises.rm(managed.filePath, { force: true });
+      db.prepare(`DELETE FROM managed_image_deletion_queue WHERE reference = ?`).run(row.reference);
+    } catch (error) {
+      const attempts = row.attempts + 1;
+      const delaySeconds = Math.min(3600, 5 * 2 ** Math.min(attempts, 9));
+      const message = error instanceof Error ? error.message.slice(0, 500) : 'unknown deletion error';
+      db.prepare(`
+        UPDATE managed_image_deletion_queue
+        SET attempts = ?, last_error = ?, next_attempt_at = unixepoch() + ?
+        WHERE reference = ?
+      `).run(attempts, message, delaySeconds, row.reference);
     }
   }
 }
 
+export async function removeStaleTemporaryUploads(maxAgeMs = 60 * 60 * 1000): Promise<void> {
+  const cutoff = Date.now() - maxAgeMs;
+  const entries = await fs.promises.readdir(temporaryUploadsDirectory, { withFileTypes: true });
+  await Promise.all(entries.filter((entry) => entry.isFile()).map(async (entry) => {
+    const filePath = path.join(temporaryUploadsDirectory, entry.name);
+    const stat = await fs.promises.stat(filePath);
+    if (stat.mtimeMs < cutoff) await fs.promises.rm(filePath, { force: true });
+  }));
+}
+
+export function deleteManagedImage(reference: string | null | undefined): void {
+  const managed = managedImagePath(reference);
+  if (!managed) return;
+  void removeFile(managed.filePath);
+}
+
 export function deleteManagedImageIfUnreferenced(reference: string | null | undefined): void {
-  if (!reference?.startsWith('/uploads/')) return;
-  const legacyEventReference = reference.startsWith('/uploads/events/')
-    ? reference.slice('/uploads/events/'.length)
-    : null;
-  const checks: Array<[string, unknown[]]> = [
-    [`SELECT 1 FROM users WHERE profile_photo_path = ? LIMIT 1`, [reference]],
-    [
-      `SELECT 1 FROM events WHERE banner_image_path = ? OR banner_image_path = ? LIMIT 1`,
-      [reference, legacyEventReference],
-    ],
-    [`SELECT 1 FROM teams WHERE logo_url = ? LIMIT 1`, [reference]],
-    [`SELECT 1 FROM photos WHERE image_url = ? LIMIT 1`, [reference]],
-    [`SELECT 1 FROM sponsors WHERE logo_url = ? LIMIT 1`, [reference]],
-    [`SELECT 1 FROM certificate_templates WHERE preview_image = ? LIMIT 1`, [reference]],
-    [`SELECT 1 FROM mentors WHERE photo_url = ? LIMIT 1`, [reference]],
-  ];
-  for (const [sql, parameters] of checks) {
-    if (db.prepare(sql).get(...parameters)) return;
-  }
-  deleteManagedImage(reference);
+  enqueueManagedImageDeletion(reference);
 }
 
 export function requireSingleImageSource(file: Express.Multer.File | undefined, url: unknown, fieldName: string): void {

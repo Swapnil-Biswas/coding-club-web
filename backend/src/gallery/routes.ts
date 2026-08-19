@@ -2,9 +2,8 @@ import { Router } from 'express';
 import { asyncHandler, HttpError } from '../lib/errors.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import {
-  admitImageUpload,
   deleteManagedImage,
-  imageUpload,
+  uploadSingleImage,
   requireSingleImageSource,
   saveImageFile,
   validateImageUrl,
@@ -34,13 +33,12 @@ galleryRouter.post(
   '/photos',
   requireAuth,
   requireRole('member', 'core', 'core_head', 'admin'),
-  admitImageUpload,
-  imageUpload.single('image'),
+  uploadSingleImage('image'),
   asyncHandler(async (req, res) => {
     const imageUrl = req.body?.image_url;
     requireSingleImageSource(req.file, imageUrl, 'image_url');
     const reference = req.file
-      ? saveImageFile(req.file, 'gallery')
+      ? await saveImageFile(req.file, 'gallery')
       : validateImageUrl(imageUrl, 'image_url');
 
     try {

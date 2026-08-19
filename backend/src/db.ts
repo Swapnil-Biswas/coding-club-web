@@ -379,6 +379,16 @@ db.exec(`
     updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_mentors_active ON mentors(is_active, sort_order);
+
+  CREATE TABLE IF NOT EXISTS managed_image_deletion_queue (
+    reference TEXT PRIMARY KEY,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_managed_image_deletion_due
+    ON managed_image_deletion_queue(next_attempt_at);
 `);
 
 function hasColumn(table: string, column: string): boolean {

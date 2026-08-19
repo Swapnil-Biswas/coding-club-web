@@ -5,8 +5,11 @@ import multer from 'multer';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import crypto from 'node:crypto';
+import helmet from 'helmet';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createClient } from 'redis';
+import { RedisStore } from 'rate-limit-redis';
 
 import { authRouter } from './auth/routes.js';
 import { usersRouter } from './users/routes.js';
@@ -20,7 +23,6 @@ import { sponsorsRouter } from './sponsors/routes.js';
 import { joinRequestsRouter } from './join-requests/routes.js';
 import { aboutRouter } from './about/routes.js';
 import { eventHistoryRouter } from './event-history/routes.js';
-import { certificatesRouter } from './certificates/routes.js';
 import { leaderboardsRouter } from './leaderboards/routes.js';
 import { announcementsRouter } from './announcements/routes.js';
 import { notificationsRouter } from './notifications/routes.js';
@@ -30,13 +32,30 @@ import { searchRouter } from './search/routes.js';
 import { projectsRouter } from './projects/routes.js';
 import { mentorsRouter } from './mentors/routes.js';
 import { HttpError } from './lib/errors.js';
+import {
+  processManagedImageDeletionQueue,
+  removeStaleTemporaryUploads,
+} from './lib/imageUpload.js';
 import { loadUser, SESSION_COOKIE } from './auth/middleware.js';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  strictTransportSecurity: isProduction
+    ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+    : false,
+}));
 
 function requiredProductionValue(name: string): string {
   const value = process.env[name]?.trim() ?? '';
@@ -70,14 +89,27 @@ if (isProduction) {
   }
 }
 
-const trustedProxyCidrs = (process.env.TRUST_PROXY_CIDRS ?? '')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
-if (isProduction && trustedProxyCidrs.length === 0) {
-  throw new Error('TRUST_PROXY_CIDRS must list the production reverse proxies');
+// TRUST_PROXY_CIDRS: comma-separated CIDRs/IPs of reverse proxies in front of
+// this server (e.g. nginx, Cloudflare). Set to 'none' to explicitly run without
+// a proxy. Unset in production logs a warning but does NOT crash — many simple
+// VPS setups run Node directly.
+const rawProxyCidrs = (process.env.TRUST_PROXY_CIDRS ?? '').trim();
+const trustedProxyCidrs = rawProxyCidrs === 'none'
+  ? []
+  : rawProxyCidrs.split(',').map((v) => v.trim()).filter(Boolean);
+if (isProduction && rawProxyCidrs === '') {
+  console.warn(
+    '[backend] WARNING: TRUST_PROXY_CIDRS is not set. ' +
+    'If you are running behind a reverse proxy, set it to your proxy CIDRs. ' +
+    'If running directly (no proxy), set TRUST_PROXY_CIDRS=none to silence this.'
+  );
 }
-app.set('trust proxy', trustedProxyCidrs.length === 0 ? false : trustedProxyCidrs);
+// In dev the Next.js proxy runs on loopback and adds X-Forwarded-For.
+// Trust loopback in dev; in production use the explicit list (or false = no proxy).
+const trustProxy = trustedProxyCidrs.length > 0
+  ? trustedProxyCidrs
+  : (isProduction ? false : 'loopback');
+app.set('trust proxy', trustProxy);
 
 const appOrigin = process.env.APP_ORIGIN?.trim() ?? (isProduction ? '' : 'http://localhost:3000');
 if (!appOrigin) {
@@ -101,6 +133,26 @@ for (const origin of allowedOrigins) {
   }
 }
 
+const redisUrl = process.env.RATE_LIMIT_REDIS_URL?.trim() ?? '';
+if (isProduction && !redisUrl) {
+  console.warn(
+    '[backend] WARNING: RATE_LIMIT_REDIS_URL is not set. ' +
+    'Rate limit counters will be in-memory and reset on every restart. ' +
+    'Set this to a Redis URL for persistent rate limiting across restarts/instances.'
+  );
+}
+const redisClient = redisUrl ? createClient({ url: redisUrl }) : null;
+if (redisClient) {
+  redisClient.on('error', (error) => console.error('[rate-limit] Redis error', error));
+  await redisClient.connect();
+}
+const rateLimitStore = (prefix: string): RedisStore | undefined => redisClient
+  ? new RedisStore({
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+      prefix: `coding-club:${prefix}:`,
+    })
+  : undefined;
+
 app.use(
   cors({
     origin: (origin, cb) => {
@@ -114,6 +166,7 @@ app.use(
 );
 
 const earlyLimiter = rateLimit({
+  store: rateLimitStore('early'),
   windowMs: 60 * 1000,
   max: 300,
   standardHeaders: true,
@@ -126,6 +179,7 @@ app.use(express.json({ limit: '256kb' }));
 
 // Tight limiter for auth endpoints (brute-force + OTP abuse prevention).
 const authLimiter = rateLimit({
+  store: rateLimitStore('auth-ip'),
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -135,6 +189,7 @@ const authLimiter = rateLimit({
 });
 
 const authAccountLimiter = rateLimit({
+  store: rateLimitStore('auth-account-ip'),
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: false,
@@ -143,16 +198,19 @@ const authAccountLimiter = rateLimit({
     process.env.NODE_ENV === 'test' ||
     typeof req.body?.email !== 'string' ||
     req.body.email.trim() === '',
-  keyGenerator: (req) =>
-    crypto
+  keyGenerator: (req) => {
+    const account = crypto
       .createHash('sha256')
       .update(String(req.body?.email).trim().toLowerCase())
-      .digest('hex'),
+      .digest('hex');
+    return `${ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown')}:${account}`;
+  },
   message: { error: 'Too many attempts, please try again in 15 minutes.' },
 });
 
 // Looser limiter for the rest of the API (DoS mitigation).
 const apiLimiter = rateLimit({
+  store: rateLimitStore('api'),
   windowMs: 60 * 1000, // 1 minute
   max: 200,
   standardHeaders: true,
@@ -167,6 +225,7 @@ app.use('/auth/signup', authLimiter, authAccountLimiter);
 app.use('/auth/verify-email', authLimiter, authAccountLimiter);
 app.use('/auth/resend-verification', authLimiter, authAccountLimiter);
 app.use('/join-requests', rateLimit({
+  store: rateLimitStore('join-requests'),
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
   standardHeaders: true,
@@ -229,7 +288,10 @@ app.use('/sponsors', sponsorsRouter);
 app.use('/join-requests', joinRequestsRouter);
 app.use('/about', aboutRouter);
 app.use('/event-history', eventHistoryRouter);
-app.use('/', certificatesRouter);
+if (!isProduction || process.env.ENABLE_CERTIFICATES === 'true') {
+  const { certificatesRouter } = await import('./certificates/routes.js');
+  app.use('/', certificatesRouter);
+}
 app.use('/events', leaderboardsRouter);
 app.use('/events', announcementsRouter);
 app.use('/notifications', notificationsRouter);
@@ -265,6 +327,26 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 };
 
 app.use(errorHandler);
+
+let cleanupRunning = false;
+const runManagedFileCleanup = async (): Promise<void> => {
+  if (cleanupRunning) return;
+  cleanupRunning = true;
+  try {
+    await processManagedImageDeletionQueue();
+  } catch (error) {
+    console.error('[uploads] deletion queue processing failed', error);
+  } finally {
+    cleanupRunning = false;
+  }
+};
+
+await removeStaleTemporaryUploads().catch((error) => {
+  console.error('[uploads] stale temporary-file cleanup failed', error);
+});
+await runManagedFileCleanup();
+const cleanupTimer = setInterval(() => void runManagedFileCleanup(), 60_000);
+cleanupTimer.unref();
 
 const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {

@@ -67,6 +67,7 @@ export interface DirectoryUser {
   id: number;
   name: string;
   role: Role;
+  club_title: string | null;
   created_at: string;
 }
 
@@ -76,9 +77,11 @@ export interface AdminUser {
   email: string;
   role: Role;
   email_verified: boolean;
+  club_title: string | null;
   created_at: string;
   promoted_by: number | null;
   promoted_at: string | null;
+  is_seeded_admin: boolean;  // protected root admin — cannot be modified by other admins
 }
 
 export interface SessionRow {

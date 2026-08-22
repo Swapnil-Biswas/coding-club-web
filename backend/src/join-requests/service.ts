@@ -39,6 +39,15 @@ export function submitJoinRequest(body: SubmitJoinRequestPayload): PublicJoinReq
   const message = stringValue(body.message, { field: 'message', min: 1, max: 2_000 });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'email is invalid');
 
+  // Prevent duplicate submissions from the same email address.
+  // A 'closed' request is treated as resolved so the person may re-apply.
+  const existing = db
+    .prepare<{ id: number }>(`SELECT id FROM join_requests WHERE email = ? AND status != 'closed' LIMIT 1`)
+    .get(email);
+  if (existing) {
+    throw new HttpError(429, 'A join request for this email already exists. The core team will reach out soon.');
+  }
+
   const result = db
     .prepare(
       `INSERT INTO join_requests (name, email, message, status) VALUES (?, ?, ?, 'new')`,

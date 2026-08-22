@@ -26,7 +26,7 @@ export default function MembersPage() {
       <div className="page"><div className="section-inner"><Spinner /></div></div>
     );
   }
-  if (!user || user.role === 'public') {
+  if (!user) {
     return (
       <div className="page"><div className="section-inner">
         <EmptyState title="Sign in required" body="The members panel is visible to all club members." action={<button className="btn-primary" onClick={() => openAuth("login")}>Sign in</button>} />
@@ -49,7 +49,8 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
 
   const admin = isAdmin(viewer);
   const faculty = isFaculty(viewer);
-  const coreHead = viewer.role === 'core_head' || admin; // core_head can promote member→core
+  const coreHead = viewer.role === 'core_head'; // pure core_head (not admin)
+  const canManage = admin || coreHead;           // both can promote/demote
 
   async function load() {
     try {
@@ -106,14 +107,25 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
     const q = query.trim().toLowerCase();
     return users
       .filter((u) => (tab === "all" ? true : u.role === tab))
+      // Non-managers never see admin accounts (backend already strips them from the
+      // slim list, but this guards against any future shape change).
+      .filter((u) => canManage || u.role !== "admin")
       .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
       .sort((a, b) => {
+        // Special titles pin to the very top: President → 0, Vice President → 1
+        const titleRank = (t?: string | null) =>
+          t === "President" ? 0 : t === "Vice President" ? 1 : 2;
+        const ta = titleRank(a.club_title);
+        const tb = titleRank(b.club_title);
+        if (ta !== tb) return ta - tb;
+        // Then sort by role hierarchy
         const ai = ROLE_ORDER.indexOf(a.role as Role);
         const bi = ROLE_ORDER.indexOf(b.role as Role);
-        // Unknown roles (shouldn't happen) sort to end
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        // Finally alphabetical by name within the same rank
+        return a.name.localeCompare(b.name);
       });
-  }, [users, tab, query]);
+  }, [users, tab, query, canManage]);
 
   return (
     <div className="page">
@@ -122,7 +134,15 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
           eyebrow="// Members"
           title="People &"
           ghost="roles."
-          sub={admin ? "Promote, demote, manage accounts, and assign Faculty status." : coreHead ? "Core Heads can promote Members to Core." : faculty ? "You are viewing as a Faculty observer (read-only)." : "View all club members and their roles."}
+          sub={
+            admin
+              ? "Promote, demote, assign Faculty status, and manage accounts."
+              : coreHead
+              ? "Promote/demote within Public ↔ Member ↔ Core. Admins handle Core Head and above."
+              : faculty
+              ? "You are viewing as a Faculty observer (read-only)."
+              : "View all club members and their roles."
+          }
           actions={
             <input
               className="input compact-search"
@@ -158,11 +178,11 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
               <thead>
                 <tr>
                   <th>Name</th>
-                  {admin && <th>Email</th>}
+                  {canManage && <th>Email</th>}
                   <th>Role</th>
                   {admin && <th>Verified</th>}
                   <th>Joined</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  {canManage && <th style={{ textAlign: "right" }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -172,97 +192,159 @@ function MembersInner({ viewer }: { viewer: PublicUser }) {
                       {u.name}
                       {u.id === viewer.id && <span className="text-mono text-sm text-muted"> (you)</span>}
                     </td>
-                    {admin && <td className="text-mono text-sm">{u.email}</td>}
-                    <td><RoleChip role={u.role} /></td>
+                    {canManage && <td className="text-mono text-sm">{u.email}</td>}
+                    <td>
+                      {/* President / Vice President get a special title badge.
+                          canManage viewers also see the underlying Core Head chip. */}
+                      {(u.club_title === "President" || u.club_title === "Vice President") ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span
+                            className="role-chip"
+                            style={{
+                              background: u.club_title === "President"
+                                ? "linear-gradient(135deg,#b8860b,#ffd700)"
+                                : "linear-gradient(135deg,#5a7fa8,#8ab4d8)",
+                              color: "#fff",
+                              fontWeight: 700,
+                              letterSpacing: "0.03em",
+                            }}
+                          >
+                            {u.club_title}
+                          </span>
+                          {canManage && <RoleChip role={u.role} />}
+                        </span>
+                      ) : (
+                        <RoleChip role={u.role} />
+                      )}
+                    </td>
                     {admin && <td>{u.email_verified ? "Yes" : "No"}</td>}
                     <td className="text-sm text-muted">{formatDate(u.created_at)}</td>
-                    <td>
-                      <div className="table-actions">
-                        {/* core_head: member → core only */}
-                        {coreHead && !admin && u.role === "member" && (
-                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
-                            → Core
-                          </ActionButton>
+                    {canManage && (
+                      <td>
+                        {u.is_seeded_admin ? (
+                          // Root admin — permanently protected, no actions allowed
+                          <span style={{ fontSize: 11, color: "var(--grey-400)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                            🔒 root
+                          </span>
+                        ) : (
+                          <div className="table-actions">
+
+                            {/* ── core_head scope: public ↔ member ↔ core ── */}
+                            {coreHead && u.role === "public" && (
+                              <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                                ↑ Member
+                              </ActionButton>
+                            )}
+                            {coreHead && u.role === "member" && (
+                              <>
+                                <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
+                                  ↑ Core
+                                </ActionButton>
+                                <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "public")}>
+                                  ↓ Public
+                                </ActionButton>
+                              </>
+                            )}
+                            {coreHead && u.role === "core" && (
+                              <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                                ↓ Member
+                              </ActionButton>
+                            )}
+
+                            {/* ── admin scope: full hierarchy ── */}
+                            {admin && u.role === "public" && (
+                              <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                                ↑ Member
+                              </ActionButton>
+                            )}
+                            {admin && u.role === "member" && (
+                              <>
+                                <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
+                                  ↑ Core
+                                </ActionButton>
+                                <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "public")}>
+                                  ↓ Public
+                                </ActionButton>
+                              </>
+                            )}
+                            {admin && u.role === "core" && (
+                              <>
+                                <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
+                                  ↑ Core Head
+                                </ActionButton>
+                                <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                                  ↓ Member
+                                </ActionButton>
+                              </>
+                            )}
+                            {admin && u.role === "core_head" && (
+                              <>
+                                <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "admin")}>
+                                  ↑ Admin
+                                </ActionButton>
+                                <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
+                                  ↓ Core
+                                </ActionButton>
+                              </>
+                            )}
+                            {/* Admin row: demote only (not self, not seeded — already handled above) */}
+                            {admin && u.role === "admin" && u.id !== viewer.id && (
+                              <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
+                                ↓ Core Head
+                              </ActionButton>
+                            )}
+
+                            {/* ── Faculty (admin only) ── */}
+                            {admin && u.id !== viewer.id && u.role !== "faculty" && u.role !== "admin" && (
+                              <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "faculty")}>
+                                → Faculty
+                              </ActionButton>
+                            )}
+                            {admin && u.role === "faculty" && (
+                              <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
+                                Remove Faculty
+                              </ActionButton>
+                            )}
+
+                            {/* ── Delete (admin only, never yourself) ── */}
+                            {admin && u.id !== viewer.id && (
+                              <button
+                                title={`Delete ${u.name}'s account`}
+                                disabled={busyId === u.id}
+                                onClick={() => setDeleteTarget(u)}
+                                style={{
+                                  background: "none",
+                                  border: "1.5px solid rgba(192,57,43,0.3)",
+                                  borderRadius: 8,
+                                  padding: "5px 7px",
+                                  cursor: "pointer",
+                                  color: "#c0392b",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  opacity: busyId === u.id ? 0.4 : 1,
+                                  transition: "background 0.15s, border-color 0.15s",
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "rgba(192,57,43,0.08)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                  <path d="M10 11v6M14 11v6" />
+                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                </svg>
+                              </button>
+                            )}
+
+                          </div>
                         )}
-                        {/* admin: full control */}
-                        {admin && u.role === "member" && (
-                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
-                            → Core
-                          </ActionButton>
-                        )}
-                        {admin && u.role === "core" && (
-                          <>
-                            <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
-                              → Core Head
-                            </ActionButton>
-                            <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
-                              → Member
-                            </ActionButton>
-                          </>
-                        )}
-                        {admin && u.role === "core_head" && (
-                          <>
-                            <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "admin")}>
-                              → Admin
-                            </ActionButton>
-                            <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core")}>
-                              → Core
-                            </ActionButton>
-                          </>
-                        )}
-                        {admin && u.role === "admin" && u.id !== viewer.id && (
-                          <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "core_head")}>
-                            → Core Head
-                          </ActionButton>
-                        )}
-                        {/* Faculty assignment — admin can assign/remove on any non-admin, non-faculty user */}
-                        {admin && u.id !== viewer.id && u.role !== "faculty" && u.role !== "admin" && (
-                          <ActionButton busy={busyId === u.id} onClick={() => changeRole(u, "faculty")}>
-                            → Faculty
-                          </ActionButton>
-                        )}
-                        {/* Remove faculty — admin can demote faculty back to member (default) */}
-                        {admin && u.role === "faculty" && (
-                          <ActionButton danger busy={busyId === u.id} onClick={() => changeRole(u, "member")}>
-                            Remove Faculty
-                          </ActionButton>
-                        )}
-                        {/* Delete — admin only, never yourself */}
-                        {admin && u.id !== viewer.id && (
-                          <button
-                            title={`Delete ${u.name}'s account`}
-                            disabled={busyId === u.id}
-                            onClick={() => setDeleteTarget(u)}
-                            style={{
-                              background: "none",
-                              border: "1.5px solid rgba(192,57,43,0.3)",
-                              borderRadius: 8,
-                              padding: "5px 7px",
-                              cursor: "pointer",
-                              color: "#c0392b",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              opacity: busyId === u.id ? 0.4 : 1,
-                              transition: "background 0.15s, border-color 0.15s",
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(192,57,43,0.08)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6M14 11v6" />
-                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={admin ? 6 : 4} style={{ textAlign: "center", color: "var(--grey-400)", padding: 32 }}>No members match.</td></tr>
+                  <tr><td colSpan={canManage ? (admin ? 6 : 5) : 3} style={{ textAlign: "center", color: "var(--grey-400)", padding: 32 }}>No members match.</td></tr>
                 )}
               </tbody>
             </table>

@@ -33,6 +33,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Allow the Cloudflare tunnel domain to load Next.js dev chunks (JS/CSS).
+  // Without this, Next.js 16 blocks all /_next/static/* requests from external origins.
+  allowedDevOrigins: [
+    'bmsitcodingclub.space',
+    'www.bmsitcodingclub.space',
+  ],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

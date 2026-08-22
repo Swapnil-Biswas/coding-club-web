@@ -6,6 +6,8 @@ import RevealOnScroll from "./RevealOnScroll";
 import GlyphDivider from "./GlyphDivider";
 import { FormError, FormSuccess } from "./app/ui";
 
+const LS_KEY = "coding-club:join-submitted";
+
 // 4×6 grid of glyph dots that reacts to mouse — Nothing-style notification strip
 function JoinGlyphGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,6 +109,11 @@ function JoinGlyphGrid() {
   return <canvas ref={canvasRef} className="join-glyph-canvas" />;
 }
 
+interface PersistedSubmission {
+  name: string;
+  email: string;
+}
+
 export default function JoinUs() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -114,6 +121,25 @@ export default function JoinUs() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [submittedName, setSubmittedName] = useState("");
+
+  // On mount, check if this browser has already submitted a join request.
+  // This persists across page refreshes so the user can't trivially re-submit
+  // by navigating away and back.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(LS_KEY);
+      if (stored) {
+        const parsed: PersistedSubmission = JSON.parse(stored);
+        setSubmittedEmail(parsed.email ?? "");
+        setSubmittedName(parsed.name ?? "");
+        setDone(true);
+      }
+    } catch {
+      // ignore parse errors or localStorage unavailability
+    }
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -124,6 +150,16 @@ export default function JoinUs() {
         method: "POST",
         body: { name: name.trim(), email: email.trim(), message: message.trim() },
       });
+      // Persist submission so the form stays "done" across refreshes and
+      // navigations — one submission per browser.
+      const submission: PersistedSubmission = { name: name.trim(), email: email.trim() };
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(submission));
+      } catch {
+        // localStorage unavailable (private mode, quota) — non-fatal
+      }
+      setSubmittedName(name.trim());
+      setSubmittedEmail(email.trim());
       setDone(true);
       setName("");
       setEmail("");
@@ -159,12 +195,9 @@ export default function JoinUs() {
                 <div className="empty-glyph" aria-hidden="true"><span /><span /><span /><span /><span /></div>
                 <h3 className="card-title" style={{ fontSize: 24, marginBottom: 8 }}>Request received.</h3>
                 <p className="card-muted">
-                  Thanks, {name || "friend"} — the core team reviews every request and will reach out
-                  to <strong>{email}</strong> soon. In the meantime, come say hi at a Tuesday session.
+                  Thanks, {submittedName || "friend"} — the core team reviews every request and will reach out
+                  to <strong>{submittedEmail}</strong> soon. In the meantime, come say hi at a Tuesday session.
                 </p>
-                <button className="btn-secondary btn-sm" style={{ marginTop: 22 }} onClick={() => setDone(false)}>
-                  Send another request
-                </button>
               </div>
             ) : (
               <form className="card" onSubmit={onSubmit} style={{ padding: "30px" }}>

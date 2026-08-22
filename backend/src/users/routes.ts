@@ -26,10 +26,11 @@ usersRouter.get('/me', requireAuth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-// member and above, plus faculty observers, can view the members list.
-// The transition matrix in service.js enforces what each role can actually do.
-usersRouter.get('/', requireAuth, requireRole('member', 'core', 'core_head', 'admin', 'faculty'), (req, res) => {
-  const users = req.user!.role === 'admin' ? listUsers(true) : listUsers(false);
+// core_head and admin see full management fields (email, verified, etc.).
+// member/core/faculty/public see the slim directory view (no email).
+usersRouter.get('/', requireAuth, requireRole('public', 'member', 'core', 'core_head', 'admin', 'faculty'), (req, res) => {
+  const fullView = req.user!.role === 'admin' || req.user!.role === 'core_head';
+  const users = fullView ? listUsers(true) : listUsers(false);
   res.json({ users });
 });
 

@@ -8,8 +8,9 @@ import type { AdminUser, DirectoryUser, PublicUser, Role, SessionUser, UserRow }
 // here — and ONLY here. The matrix is the single source of truth.
 //
 // Rules:
-//   - core       : view-only, cannot promote anyone.
-//   - core_head  : can promote member → core only.
+//   - core       : view-only, cannot change anyone's role.
+//   - core_head  : promote/demote within public ↔ member ↔ core only.
+//                  Cannot touch core_head or admin roles.
 //   - admin      : full control — any from/to combination including faculty.
 //   - faculty    : parallel role — assigned/removed only by admin.
 //                  Hard guard below prevents self-demotion.
@@ -19,6 +20,13 @@ import type { AdminUser, DirectoryUser, PublicUser, Role, SessionUser, UserRow }
 // include it. Faculty permissions are defined separately via isFacultyBlocked().
 const ROLES_LIST: readonly Exclude<Role, 'faculty'>[] = ['public', 'member', 'core', 'core_head', 'admin'];
 
+// The email of the bootstrapped root admin (set via SEED_ADMIN_EMAIL in .env).
+// This account is permanently protected — no other admin can modify its role.
+const SEEDED_ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL ?? '').toLowerCase().trim();
+function isSeededAdmin(email: string): boolean {
+  return Boolean(SEEDED_ADMIN_EMAIL && email.toLowerCase() === SEEDED_ADMIN_EMAIL);
+}
+
 interface RoleTransition {
   actor: Role;
   from: Role;
@@ -26,8 +34,11 @@ interface RoleTransition {
 }
 
 const ALLOWED_TRANSITIONS: readonly RoleTransition[] = [
-  // core_head: member → core only
-  { actor: 'core_head', from: 'member', to: 'core' },
+  // core_head: promote/demote within public ↔ member ↔ core (cannot touch core_head/admin)
+  { actor: 'core_head', from: 'public',  to: 'member' },
+  { actor: 'core_head', from: 'member',  to: 'core'   },
+  { actor: 'core_head', from: 'core',    to: 'member' },
+  { actor: 'core_head', from: 'member',  to: 'public' },
   // admin: every possible (from → to) pair within the linear hierarchy
   ...ROLES_LIST.flatMap((from) =>
     ROLES_LIST
@@ -56,18 +67,18 @@ export function listUsers(includeManagementFields?: false): DirectoryUser[];
 export function listUsers(includeManagementFields = false): AdminUser[] | DirectoryUser[] {
   if (!includeManagementFields) {
     return db.prepare<DirectoryUser>(
-      `SELECT id, name, role, created_at FROM users ORDER BY created_at DESC`,
+      `SELECT id, name, role, club_title, created_at FROM users WHERE role != 'admin' ORDER BY created_at DESC`,
     ).all();
   }
 
   return db
-    .prepare<Pick<UserRow, 'id' | 'name' | 'email' | 'role' | 'email_verified' | 'created_at' | 'promoted_by' | 'promoted_at'>>(
-      `SELECT id, name, email, role, email_verified, created_at, promoted_by, promoted_at
+    .prepare<Pick<UserRow, 'id' | 'name' | 'email' | 'role' | 'email_verified' | 'club_title' | 'created_at' | 'promoted_by' | 'promoted_at'>>(
+      `SELECT id, name, email, role, email_verified, club_title, created_at, promoted_by, promoted_at
        FROM users
        ORDER BY created_at DESC`,
     )
     .all()
-    .map((u) => ({ ...u, email_verified: Boolean(u.email_verified) }));
+    .map((u) => ({ ...u, email_verified: Boolean(u.email_verified), is_seeded_admin: isSeededAdmin(u.email) }));
 }
 
 export interface ChangeUserRoleInput {
@@ -91,6 +102,11 @@ export function changeUserRole({ actor, targetUserId, newRole }: ChangeUserRoleI
 
   if (!canTransition(actor.role, fromRole, newRole)) {
     throw new HttpError(403, `role transition ${actor.role}: ${fromRole} -> ${newRole} not allowed`);
+  }
+
+  // Hard guard: never let anyone modify the seeded root admin account.
+  if (isSeededAdmin(target.email)) {
+    throw new HttpError(403, 'The root admin account is protected and cannot be modified');
   }
 
   // Hard guard: even though the matrix doesn't allow it, never let an admin

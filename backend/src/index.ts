@@ -224,15 +224,18 @@ app.use('/auth/login', authLimiter, authAccountLimiter);
 app.use('/auth/signup', authLimiter, authAccountLimiter);
 app.use('/auth/verify-email', authLimiter, authAccountLimiter);
 app.use('/auth/resend-verification', authLimiter, authAccountLimiter);
-app.use('/join-requests', rateLimit({
-  store: rateLimitStore('join-requests'),
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
+// Rate-limit only POST /join-requests (public submission).
+// Admin GET and PATCH must NOT consume this budget.
+const joinRequestSubmitLimiter = rateLimit({
+  store: rateLimitStore('join-requests-post'),
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 1, // 1 submission per IP per day
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
-  message: { error: 'Too many join requests, please try again later.' },
-}));
+  skip: (req) => process.env.NODE_ENV === 'test' || req.method !== 'POST',
+  message: { error: 'You have already submitted a join request. Please wait before trying again.' },
+});
+app.use('/join-requests', joinRequestSubmitLimiter);
 
 // General limiter on everything else
 app.use(apiLimiter);

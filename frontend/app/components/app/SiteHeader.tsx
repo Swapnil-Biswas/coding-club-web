@@ -14,7 +14,7 @@ const publicLinks = [
   { label: "TEAM",     href: "/teams" },
   { label: "MENTORS",  href: "/mentors" },
   { label: "GALLERY",  href: "/gallery" },
-  { label: "SPONSORS", href: "/sponsors" },
+  { label: "PARTNERS", href: "/partners" },
   { label: "ABOUT",    href: "/about" },
 ];
 

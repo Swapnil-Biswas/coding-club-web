@@ -6,7 +6,7 @@ import Projects from "./components/Projects";
 import Team from "./components/Team";
 import Resources from "./components/Resources";
 import Domains from "./components/Domains";
-import Sponsors from "./components/Sponsors";
+import Partners from "./components/Partners";
 import JoinUs from "./components/JoinUs";
 import GlyphDivider from "./components/GlyphDivider";
 
@@ -21,7 +21,7 @@ export default function Home() {
       <Team />
       <Resources />
       <Domains />
-      <Sponsors />
+      <Partners />
       <JoinUs />
     </main>
   );

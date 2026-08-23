@@ -80,7 +80,7 @@ export function createPhoto(actor: ActorLike, body: CreatePhotoPayload): PublicP
   const uploadedBy = actor.id;
   const eventId = body.event_id ? Number(body.event_id) : null;
   const imageUrl = validateImageReference(body.image_url, 'image_url');
-  const caption = String(body.caption || '').trim() || null;
+  const caption = String(body.caption || '').trim();
 
   if (eventId) {
     const event = db.prepare<{ id: number }>(`SELECT id FROM events WHERE id = ?`).get(eventId);
@@ -115,7 +115,7 @@ export function updatePhoto(actor: ActorLike, id: Id, body: UpdatePhotoPayload):
 
   if (body.caption !== undefined) {
     sets.push(`caption = ?`);
-    params.push(String(body.caption || '').trim() || null);
+    params.push(String(body.caption || '').trim());
   }
   if (body.is_featured !== undefined) {
     if (!canFeatureOrReorder(actor, photo)) throw new HttpError(403, 'forbidden');

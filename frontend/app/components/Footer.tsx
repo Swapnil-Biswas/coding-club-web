@@ -68,7 +68,7 @@ export default function Footer() {
             <li><Link href="/events">Events</Link></li>
             <li><Link href="/teams">Team</Link></li>
             <li><Link href="/gallery">Gallery</Link></li>
-            <li><Link href="/sponsors">Sponsors</Link></li>
+            <li><Link href="/partners">Partners</Link></li>
             <li><Link href="/about">About</Link></li>
             <li><Link href="/verify">Verify certificate</Link></li>
             <li><Link href="/join">Join us</Link></li>

@@ -70,7 +70,7 @@ const TABS = [
   { id: "teams",     label: "Teams" },
   { id: "certificates", label: "Certificates" },
   { id: "gallery",   label: "Gallery" },
-  { id: "sponsors",  label: "Sponsors" },
+  { id: "sponsors",  label: "Partners" },
   { id: "requests",  label: "Join Requests" },
   { id: "content",   label: "About Page" },
   { id: "projects",  label: "Projects" },
@@ -131,7 +131,7 @@ function DashboardInner() {
           eyebrow="// Dashboard"
           title={admin ? "Platform" : isPresident(user) ? "President" : "Core Head"}
           ghost="console."
-          sub="Manage events, teams, certificates, sponsors, requests, and site content."
+          sub="Manage events, teams, certificates, partners, requests, and site content."
         />
         <Tabs active={tab} onChange={setTab} tabs={visibleTabs} />
         {tab === "overview" && <OverviewTab />}
@@ -809,8 +809,8 @@ function EventFormModal({
               <option value="member_only">Members only</option>
             </select>
           </Field>
-          <Field label="Unstop link" hint="Required to publish">
-            <input className="input" value={form.unstop_link} onChange={(e) => setForm({ ...form, unstop_link: e.target.value })} placeholder="https://unstop.com/…" />
+          <Field label="Registration link" hint="Optional — any platform (Unstop, Devfolio, Google Forms, etc.)">
+            <input className="input" value={form.unstop_link} onChange={(e) => setForm({ ...form, unstop_link: e.target.value })} placeholder="https://…" />
           </Field>
         </div>
         <button className="btn-primary btn-block" type="submit" disabled={busy}>
@@ -1141,7 +1141,7 @@ function CertificatesTab() {
   );
 }
 
-/* ============================ SPONSORS ============================ */
+/* ============================ PARTNERS ============================ */
 function SponsorsTab() {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [form, setForm] = useState({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
@@ -1155,7 +1155,7 @@ function SponsorsTab() {
       const data = await api<{ sponsors: Sponsor[] }>("/sponsors");
       setSponsors(data.sponsors);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load sponsors");
+      setError(err instanceof Error ? err.message : "Failed to load partners");
     }
   }
   useEffect(() => { load(); }, []);
@@ -1179,7 +1179,7 @@ function SponsorsTab() {
       } else {
         await api("/sponsors", { method: "POST", body: { ...form, sort_order: Number(form.sort_order) || 0 } });
       }
-      setMsg("Sponsor added.");
+      setMsg("Partner added.");
       setForm({ name: "", logo_url: "", website: "", description: "", sort_order: "0" });
       setLogoFile(null);
       setOpen(false);
@@ -1190,7 +1190,7 @@ function SponsorsTab() {
   }
 
   async function remove(s: Sponsor) {
-    if (!confirm(`Delete sponsor "${s.name}"?`)) return;
+    if (!confirm(`Delete partner "${s.name}"?`)) return;
     setError("");
     try {
       await api(`/sponsors/${s.id}`, { method: "DELETE" });
@@ -1206,7 +1206,7 @@ function SponsorsTab() {
         <FormError>{error}</FormError>
         <FormSuccess>{msg}</FormSuccess>
         <span />
-        <button className="btn-primary" onClick={() => setOpen(!open)}>{open ? "Cancel" : "+ Add sponsor"}</button>
+        <button className="btn-primary" onClick={() => setOpen(!open)}>{open ? "Cancel" : "+ Add partner"}</button>
       </div>
 
       {open && (
@@ -1228,7 +1228,7 @@ function SponsorsTab() {
             <Field label="Sort order"><input className="input" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></Field>
           </div>
           <Field label="Description"><input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
-          <button className="btn-primary btn-sm" type="submit">Add sponsor</button>
+          <button className="btn-primary btn-sm" type="submit">Add partner</button>
         </form>
       )}
 
@@ -1244,7 +1244,7 @@ function SponsorsTab() {
               <button className="btn-danger btn-sm" onClick={() => remove(s)}>Delete</button>
             </div>
           ))}
-          {sponsors.length === 0 && <p className="card-muted" style={{ textAlign: "center", padding: 12 }}>No sponsors yet.</p>}
+          {sponsors.length === 0 && <p className="card-muted" style={{ textAlign: "center", padding: 12 }}>No partners yet.</p>}
         </div>
       </div>
     </div>

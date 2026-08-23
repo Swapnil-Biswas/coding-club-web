@@ -10,7 +10,16 @@ import { db } from '../db.js';
 import { HttpError } from './errors.js';
 
 export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
-export const IMAGE_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const IMAGE_ACCEPTED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/avif',
+] as const;
 const IMAGE_MAX_DIMENSION = 12_000;
 const IMAGE_MAX_PIXELS = 40_000_000;
 const IMAGE_PROCESSING_CONCURRENCY = 4;
@@ -44,8 +53,11 @@ const imageUpload = multer({
     headerPairs: 100,
   },
   fileFilter: (_req, file, cb) => {
-    if (!ALLOWED_MIME.has(file.mimetype)) {
-      cb(new HttpError(415, 'Only JPEG, PNG, and WebP images are supported'));
+    const mime = file.mimetype.toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isAllowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.avif'].includes(ext);
+    if (!ALLOWED_MIME.has(mime) && !isAllowedExt && mime !== 'application/octet-stream') {
+      cb(new HttpError(415, 'Only JPEG, PNG, WebP, and HEIC images are supported'));
       return;
     }
     cb(null, true);
@@ -93,18 +105,6 @@ export function uploadSingleImage(fieldName: string): RequestHandler {
   };
 }
 
-function detectedMime(format: SupportedFormat): string {
-  return format === 'jpeg' ? 'image/jpeg' : `image/${format}`;
-}
-
-function imageExtension(format: SupportedFormat): string {
-  return format === 'jpeg' ? 'jpg' : format;
-}
-
-function isSupportedFormat(format: string | undefined): format is SupportedFormat {
-  return format === 'jpeg' || format === 'png' || format === 'webp';
-}
-
 export async function saveImageFile(file: Express.Multer.File, purpose: ImagePurpose): Promise<string> {
   if (activeImageProcessing >= IMAGE_PROCESSING_CONCURRENCY) {
     throw new HttpError(503, 'Image uploads are busy, please try again shortly');
@@ -112,48 +112,50 @@ export async function saveImageFile(file: Express.Multer.File, purpose: ImagePur
   activeImageProcessing++;
 
   try {
+    const directory = path.join(uploadsRoot, purpose);
+    await fs.promises.mkdir(directory, { recursive: true });
+
     let metadata: sharpNs.Metadata;
-    let stats: sharpNs.Stats;
     try {
-      const image = sharp(file.path, {
-        animated: true,
-        failOn: 'error',
+      metadata = await sharp(file.path, {
+        failOn: 'none',
         limitInputPixels: IMAGE_MAX_PIXELS,
-      });
-      [metadata, stats] = await Promise.all([image.metadata(), image.stats()]);
+      }).metadata();
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (/pixel limit|image exceeds pixel limit|dimensions/i.test(message)) {
         throw new HttpError(413, 'Image dimensions are too large');
       }
-      throw new HttpError(415, 'The selected file is not a valid JPEG, PNG, or WebP image');
-    }
-
-    if (!isSupportedFormat(metadata.format) || detectedMime(metadata.format) !== file.mimetype) {
-      throw new HttpError(415, 'The selected file is not a valid JPEG, PNG, or WebP image');
+      throw new HttpError(415, 'The selected file is not a supported image');
     }
 
     const width = metadata.width ?? 0;
-    const height = metadata.pageHeight ?? metadata.height ?? 0;
-    const pages = metadata.pages ?? 1;
-    const decodedPixels = width * height * pages;
-    if (
-      width < 1 ||
-      height < 1 ||
-      width > IMAGE_MAX_DIMENSION ||
-      height > IMAGE_MAX_DIMENSION ||
-      decodedPixels > IMAGE_MAX_PIXELS ||
-      stats.channels.length === 0
-    ) {
+    const height = metadata.height ?? 0;
+    if (width < 1 || height < 1 || width > IMAGE_MAX_DIMENSION || height > IMAGE_MAX_DIMENSION) {
       throw new HttpError(413, 'Image dimensions are too large');
     }
 
-    const directory = path.join(uploadsRoot, purpose);
-    await fs.promises.mkdir(directory, { recursive: true });
-    const filename = `${crypto.randomUUID()}.${imageExtension(metadata.format)}`;
+    const maxSide = purpose === 'profiles' ? 1000 : 2560;
+    const filename = `${crypto.randomUUID()}.webp`;
     const filePath = path.join(directory, filename);
-    await fs.promises.rename(file.path, filePath);
+
+    await sharp(file.path, {
+      failOn: 'none',
+      limitInputPixels: IMAGE_MAX_PIXELS,
+    })
+      .rotate() // auto-orient EXIF so mobile photos aren't rotated sideways
+      .resize(maxSide, maxSide, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 88, effort: 4 })
+      .toFile(filePath);
+
     return `/uploads/${purpose}/${filename}`;
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    console.error('[uploads] image processing error', error);
+    throw new HttpError(415, 'Failed to process image file. Please try a different image.');
   } finally {
     activeImageProcessing--;
     await removeFile(file.path);

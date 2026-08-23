@@ -148,7 +148,7 @@ function EventDetail({ id }: { id: number }) {
           <div className="detail-meta-item">
             <div className="detail-meta-label">Registration</div>
             <div className="detail-meta-value" style={{ fontSize: 13 }}>
-              {event.unstop_link ? "Via Unstop" : "Free / walk-in"}
+              {event.unstop_link ? "Online registration" : "Free / walk-in"}
             </div>
           </div>
         </div>
@@ -156,7 +156,7 @@ function EventDetail({ id }: { id: number }) {
         <div className="cluster" style={{ marginBottom: 28 }}>
           {event.unstop_link && (
             <a className="btn-primary" href={event.unstop_link} target="_blank" rel="noopener noreferrer">
-              Register on Unstop
+              Register now
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 8 }}>
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                 <polyline points="15 3 21 3 21 9" />

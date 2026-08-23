@@ -1,4 +1,4 @@
-﻿# Coding Club BMSIT — Platform
+# Coding Club BMSIT — Platform
 
 A full-stack platform for the college coding club: public landing site + member features + role-based management dashboard.
 
@@ -110,14 +110,15 @@ public -> member -> core -> core_head -> admin
 
 | Role | What they can do |
 |---|---|
-| **public / logged out** | Browse public pages, verify certificates, submit join request, view published events / gallery / teams / sponsors |
+| **public (logged out)** | Browse public pages, verify certificates, submit join request, view published events / gallery / teams / sponsors |
+| **public (logged in)** | Everything above + view the members list (name, role, join date only — no email, no actions) |
 | **member** | + Upload gallery photos, view member-only events, see own QR code, certificates, attended events |
-| **core** | + Members panel (promote public->member), event check-in (scan & manual), create/edit events |
-| **core_head** | + Publish/complete events, CSV import, export attendance, manage own teams/events, generate & email certificates, manage sponsors, join requests, about page, delete gallery photos from their team, full dashboard |
+| **core** | + Event check-in (scan & manual), create/edit events. Views member list same as member (no management actions). |
+| **core_head** | + Promote/demote users within `public ↔ member ↔ core` (cannot touch core_head/admin); publish/complete events, CSV import, export attendance, manage own teams/events, generate & email certificates, manage sponsors, join requests, about page, delete gallery photos from their team, full dashboard. **Can see admin users and emails in the members list.** |
 | **President** (core_head + title "President") | Same as core_head but across **all** teams/events (no ownership restriction) |
 | **Vice President** (core_head + title "Vice President") | Same global override as President |
-| **admin** | Everything above + manage user roles + assign/remove President/VP + manage projects & mentors + delete any user |
-| **faculty** | Parallel observer — read-only analytics, event data, member list. Cannot create/modify anything |
+| **admin** | Everything above + full promote/demote across all roles including core_head↔admin + assign/remove President/VP + manage projects & mentors + delete any user. **The seeded root admin (set via `SEED_ADMIN_EMAIL`) is permanently protected — no other admin can modify or demote it.** |
+| **faculty** | Parallel observer — read-only analytics, event data, member list (no email). Cannot create/modify anything |
 
 > The server always enforces permissions with `403`. Client-side role checks only show/hide UI.
 
@@ -149,9 +150,9 @@ All routes are served at `http://localhost:3001`. In dev the frontend proxies th
 | `GET`  | `/users/me` | auth | Returns the logged-in user's full profile. |
 | `POST` | `/users/me/photo` | auth | Upload/set profile photo. Accepts multipart file `photo` **or** JSON `{ photo_url }`. |
 | `POST` | `/users/me/password` | auth | Change password. Body: `{ currentPassword, newPassword }`. Clears session on success. |
-| `GET`  | `/users` | member+ / faculty | List all users. Admin sees emails too. |
+| `GET`  | `/users` | auth (any signed-in user) | List users. `admin`/`core_head` get full fields (email, verified, club_title, is_seeded_admin). Others get slim view (name, role, club_title, joined). **Admin-role users are excluded from the response for non-core_head/non-admin viewers.** |
 | `GET`  | `/users/:id` | public | Public profile (only exposed for core, core_head, admin roles). |
-| `PATCH`| `/users/:id/role` | core_head+ | Change a user's role. Transition matrix enforced server-side. |
+| `PATCH`| `/users/:id/role` | core_head+ | Change a user's role. Transition matrix enforced server-side: `core_head` may only move users within `public ↔ member ↔ core`; `admin` has full range. The seeded root admin is immutable. |
 | `DELETE`| `/users/:id` | admin | Permanently delete a user and reassign their data to the acting admin. |
 
 ---
@@ -382,19 +383,19 @@ All routes are served at `http://localhost:3001`. In dev the frontend proxies th
 
 | Route | Access | Description |
 |---|---|---|
-| `/` | public | Landing page: Hero, Stats, About, Events, Projects, Team, Resources, Domains, Sponsors, Join |
+| `/` | public | Landing page: Hero, Stats, About, Events, Projects, Team, Resources, Domains, Partners, Join |
 | `/events` | public | Events listing |
 | `/events/[id]` | public | Event detail, leaderboard, announcements, history |
 | `/events/[id]/manage` | core+ | Registrants, check-in, import CSV, certificates, history |
 | `/teams` | public | Teams directory |
 | `/gallery` | public | Photo gallery (upload for member+, delete moved to Dashboard) |
-| `/sponsors` | public | Sponsors page |
+| `/partners` | public | Partners page (legacy `/sponsors` redirects here) |
 | `/about` | public | About page |
 | `/join` | public | Join request form |
 | `/mentors` | public | Mentors directory |
 | `/verify` | public | Certificate verification |
 | `/verify/idcard` | public | Member ID card |
-| `/members` | member+ | Members list + role management |
+| `/members` | auth (any signed-in user) | Members list + role management (management actions for core_head+ only) |
 | `/account` | auth | Profile, password, photo, certificates, attended events |
 | `/checkin` | core+ | QR scanner + manual check-in |
 | `/dashboard` | core_head+ / faculty | Management dashboard |
@@ -408,7 +409,7 @@ All routes are served at `http://localhost:3001`. In dev the frontend proxies th
 | Teams | core_head+ | Create/edit/delete teams, manage members |
 | Certificates | core_head+ | Templates, generate, bulk generate, email |
 | **Gallery** | core_head+ | View all photos, delete (own or team-members for core_head; any for admin/President) |
-| Sponsors | core_head+ | Create/edit/delete sponsors |
+| Partners | core_head+ | Create/edit/delete club partners |
 | Join Requests | core_head+ | Review and update join request status |
 | About Page | core_head+ | Edit the about page content |
 | Projects | admin | Create/edit/delete showcase projects |
@@ -434,7 +435,7 @@ All routes are served at `http://localhost:3001`. In dev the frontend proxies th
 | `RESEND_FROM_EMAIL` | Prod | Sender address e.g. `Coding Club <noreply@bmsit.in>`. |
 | `TRUST_PROXY_CIDRS` | Prod | Proxy CIDRs (Cloudflare, nginx, etc). Set to `none` if no proxy. |
 | `RATE_LIMIT_REDIS_URL` | No | Redis URL for persistent rate limiting. Falls back to in-memory. |
-| `SEED_ADMIN_EMAIL` | Seed | Email of admin to seed. |
+| `SEED_ADMIN_EMAIL` | Seed | Email of the root admin to seed. **Also used at runtime to identify and permanently protect the root admin account from modification by other admins.** |
 | `SEED_ADMIN_PASSWORD` | Seed | Password of admin to seed. |
 | `SEED_ADMIN_NAME` | Seed | Display name of admin to seed. |
 

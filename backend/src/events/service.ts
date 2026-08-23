@@ -168,10 +168,16 @@ function validatePayload(body: EventPayload, { isCreate }: { isCreate: boolean }
     throw new HttpError(400, 'visibility must be "public" or "member_only"');
   }
   if (out.unstop_link !== undefined) {
-    out.unstop_link = httpUrl(out.unstop_link, {
-      field: 'unstop_link',
-      allowedHosts: ['unstop.com'],
-    });
+    // Empty string means "clear the link" — store as null.
+    if (out.unstop_link === '' || out.unstop_link === null) {
+      out.unstop_link = null;
+    } else {
+      out.unstop_link = httpUrl(out.unstop_link, {
+        field: 'registration_link',
+        // No host restriction — events can use any registration platform
+        // (Unstop, Devfolio, Mastery Hub, Google Forms, etc.)
+      });
+    }
   }
   return out;
 }
@@ -186,12 +192,9 @@ function validateStatus(newStatus: EventStatus, currentEvent: EventRow, actor: A
     if (!canPublish(actor.role)) {
       throw new HttpError(403, 'only core_head or admin can publish events');
     }
-    // Spec: "Event cannot be published without Unstop link"
-    const link = newStatus === 'published' ? (currentEvent?.unstop_link ?? null) : null;
-    if (!link || !String(link).trim()) {
-      throw new HttpError(400, 'unstop_link is required to publish');
-    }
+    // unstop_link is optional — events can be published without it.
   }
+
   if (newStatus === 'completed') {
     if (!canForceComplete(actor.role)) {
       throw new HttpError(403, 'only core_head or admin can force-complete events');
@@ -241,12 +244,7 @@ export function updateEvent(actor: ActorLike, id: number | string, body: EventPa
     validateStatus(body.status, current, actor);
   }
 
-  // If the client is clearing the unstop_link, block that — they have to
-  // set a new value if they want to change it. Avoids accidentally dropping
-  // the link and leaving the event "unpublishable by spec."
-  if (body.unstop_link === '') {
-    throw new HttpError(400, 'unstop_link cannot be cleared once set; provide a new value or omit the field');
-  }
+  // Allow clearing the unstop_link by passing an empty string — treat it as null.
 
   // Build the SET clause from editable fields + optional status.
   const sets = [];

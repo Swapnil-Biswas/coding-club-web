@@ -4,7 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useAuth, type AuthView } from "@/app/lib/auth";
 import { Modal, Field, FormError, FormSuccess } from "./ui";
 
-const EMAIL_DOMAIN = "@gmail.com"; // TEMP: revert to "@bmsit.in" after testing
+// Allowed email domains — must match ALLOWED_EMAIL_DOMAIN in backend/.env
+const ALLOWED_DOMAINS = ["@bmsit.in", "@gmail.com"];
+const PRIMARY_DOMAIN = "@bmsit.in"; // shown in placeholders / hints
 
 export default function AuthModal() {
   const {
@@ -73,14 +75,14 @@ function LoginForm({
     <form onSubmit={onSubmit}>
       <span className="modal-eyebrow">// Welcome back</span>
       <h2 className="modal-title">Sign in</h2>
-      <p className="modal-sub">Use your {EMAIL_DOMAIN} account to continue.</p>
+      <p className="modal-sub">Use your {PRIMARY_DOMAIN} account to continue.</p>
       <FormError>{error}</FormError>
       <Field label="Email" required>
         <input
           className="input"
           type="email"
           autoComplete="email"
-          placeholder={`you${EMAIL_DOMAIN}`}
+          placeholder={`you${PRIMARY_DOMAIN}`}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -136,8 +138,8 @@ function SignupForm({
     e.preventDefault();
     setError("");
     const em = email.trim().toLowerCase();
-    if (!em.endsWith(EMAIL_DOMAIN)) {
-      setError(`Only ${EMAIL_DOMAIN} email addresses can register.`);
+    if (!ALLOWED_DOMAINS.some((d) => em.endsWith(d))) {
+      setError(`Only ${ALLOWED_DOMAINS.join(" or ")} email addresses can register.`);
       return;
     }
     setBusy(true);
@@ -156,8 +158,8 @@ function SignupForm({
       <span className="modal-eyebrow">// Join the club</span>
       <h2 className="modal-title">Create account</h2>
       <p className="modal-sub">
-        Registration is open to BMS Institute students — you&apos;ll need your{" "}
-        <strong>{EMAIL_DOMAIN}</strong> email.
+        Registration is open to BMS Institute students — use your{" "}
+        <strong>{PRIMARY_DOMAIN}</strong> email address.
       </p>
       <FormError>{error}</FormError>
       <Field label="Full name" required>
@@ -171,12 +173,12 @@ function SignupForm({
           required
         />
       </Field>
-      <Field label="College email" required hint={`Must end with ${EMAIL_DOMAIN}`}>
+      <Field label="College email" required hint={`Use your ${PRIMARY_DOMAIN} address`}>
         <input
           className="input"
           type="email"
           autoComplete="email"
-          placeholder={`you${EMAIL_DOMAIN}`}
+          placeholder={`you${PRIMARY_DOMAIN}`}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -248,7 +250,7 @@ function VerifyForm({
       <span className="modal-eyebrow">// One more step</span>
       <h2 className="modal-title">Verify your email</h2>
       <p className="modal-sub">
-        We sent a 6-digit code to your {EMAIL_DOMAIN} inbox. In development it&apos;s also printed
+        We sent a 6-digit code to your {PRIMARY_DOMAIN} inbox. In development it&apos;s also printed
         in the backend console.
       </p>
       <FormError>{error}</FormError>
@@ -257,7 +259,7 @@ function VerifyForm({
         <input
           className="input"
           type="email"
-          placeholder={`you${EMAIL_DOMAIN}`}
+          placeholder={`you${PRIMARY_DOMAIN}`}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required

@@ -51,6 +51,26 @@ export default function TeamsPage() {
   );
 }
 
+function sortMembers(members: TeamMember[]): TeamMember[] {
+  const titleRank = (m: TeamMember): number => {
+    const t = (m.club_title ?? "").trim().toLowerCase();
+    if (t === "president") return 0;
+    if (t === "vice president" || t === "vice-president") return 1;
+    if (t === "secretary") return 2;
+    if (t === "treasurer") return 3;
+    if (m.role === "core_head" || m.role === "admin") return 4;
+    return 5;
+  };
+  return [...members].sort((a, b) => {
+    const ra = titleRank(a);
+    const rb = titleRank(b);
+    if (ra !== rb) return ra - rb;
+    // Within the same rank tier: sort by display_order then name
+    if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 function TeamBlock({ team }: { team: Team }) {
   const [members, setMembers] = useState<TeamMember[] | null>(null);
 
@@ -68,6 +88,8 @@ function TeamBlock({ team }: { team: Team }) {
       cancelled = true;
     };
   }, [team.id]);
+
+  const sorted = members ? sortMembers(members) : null;
 
   return (
     <div className="card" style={{ padding: 28 }}>
@@ -92,9 +114,9 @@ function TeamBlock({ team }: { team: Team }) {
       </div>
 
       {members === null && <Spinner label="" />}
-      {members && members.length > 0 && (
+      {sorted && sorted.length > 0 && (
         <div className="grid grid-4">
-          {members.map((m) => (
+          {sorted.map((m) => (
             <MemberCard key={m.id} member={m} />
           ))}
         </div>

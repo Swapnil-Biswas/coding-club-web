@@ -36,6 +36,20 @@ export function isVicePresident(user: {
   return !!user && user.role === "core_head" && user.club_title === "Vice President";
 }
 
+export function isSecretary(user: {
+  role: Role;
+  club_title: string | null;
+} | null): boolean {
+  return !!user && user.role === "core_head" && user.club_title === "Secretary";
+}
+
+export function isTreasurer(user: {
+  role: Role;
+  club_title: string | null;
+} | null): boolean {
+  return !!user && user.role === "core_head" && user.club_title === "Treasurer";
+}
+
 export function isAdmin(user: { role: Role } | null): boolean {
   return !!user && user.role === "admin";
 }

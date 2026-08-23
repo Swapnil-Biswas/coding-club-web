@@ -113,16 +113,18 @@ export default function TeamSection({ preview = true }: { preview?: boolean }) {
         const title = (m.club_title || m.title || "").trim().toLowerCase();
         if (title === "president") return 0;
         if (title === "vice president" || title === "vice-president") return 1;
-        if (m.role === "core_head" || m.role === "admin") return 2;
-        if (m.role === "core") return 3;
-        return 4;
+        if (title === "secretary") return 2;
+        if (title === "treasurer") return 3;
+        if (m.role === "core_head" || m.role === "admin") return 4;
+        if (m.role === "core") return 5;
+        return 6;
       };
       const ra = getRank(a);
       const rb = getRank(b);
       if (ra !== rb) return ra - rb;
 
-      // Within Core tier (rank 3): sort strictly by registration date (earliest first)
-      if (ra === 3) {
+      // Within Core tier (rank 5): sort strictly by registration date (earliest first)
+      if (ra === 5) {
         if (a.created_at && b.created_at) {
           const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           if (diff !== 0) return diff;
@@ -131,7 +133,7 @@ export default function TeamSection({ preview = true }: { preview?: boolean }) {
       }
 
       // For Core Heads: display_order, then registration date, then name
-      if (ra === 2) {
+      if (ra === 4) {
         if (a.display_order !== b.display_order) return a.display_order - b.display_order;
         if (a.created_at && b.created_at) {
           const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();

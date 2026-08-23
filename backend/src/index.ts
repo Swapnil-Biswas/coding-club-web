@@ -15,6 +15,8 @@ import { authRouter } from './auth/routes.js';
 import { usersRouter } from './users/routes.js';
 import { presidentRouter } from './users/president.js';
 import { vicePresidentRouter } from './users/vice-president.js';
+import { secretaryRouter } from './users/secretary.js';
+import { treasurerRouter } from './users/treasurer.js';
 import { eventsRouter } from './events/routes.js';
 import { attendanceRouter } from './attendance/routes.js';
 import { teamsRouter } from './teams/routes.js';
@@ -277,9 +279,11 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use('/auth', authRouter);
 app.use('/users', usersRouter);
-// President / Vice President endpoints
+// President / Vice President / Secretary / Treasurer endpoints
 app.use('/president', presidentRouter);
 app.use('/vice-president', vicePresidentRouter);
+app.use('/secretary', secretaryRouter);
+app.use('/treasurer', treasurerRouter);
 // Attendance routes use both /events/:id/... and /users/me/... paths.
 // Mount BEFORE /events so attendance gets first match for /events/:id/registrants etc.
 app.use('/', attendanceRouter);

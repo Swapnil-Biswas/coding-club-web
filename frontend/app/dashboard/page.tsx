@@ -1361,9 +1361,13 @@ function AdminTab() {
   const { user } = useAuth();
   const [president, setPresident] = useState<PublicUser | null>(null);
   const [vicePresident, setVicePresident] = useState<PublicUser | null>(null);
+  const [secretary, setSecretary] = useState<PublicUser | null>(null);
+  const [treasurer, setTreasurer] = useState<PublicUser | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [assignId, setAssignId] = useState("");
   const [assignVpId, setAssignVpId] = useState("");
+  const [assignSecId, setAssignSecId] = useState("");
+  const [assignTreasId, setAssignTreasId] = useState("");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -1375,6 +1379,14 @@ function AdminTab() {
     try {
       const vp = await api<{ vicePresident: PublicUser | null }>("/vice-president");
       setVicePresident(vp.vicePresident);
+    } catch { /* none */ }
+    try {
+      const sec = await api<{ secretary: PublicUser | null }>("/secretary");
+      setSecretary(sec.secretary);
+    } catch { /* none */ }
+    try {
+      const tres = await api<{ treasurer: PublicUser | null }>("/treasurer");
+      setTreasurer(tres.treasurer);
     } catch { /* none */ }
     try {
       const u = await api<{ users: AdminUser[] }>("/users");
@@ -1433,6 +1445,58 @@ function AdminTab() {
     try {
       await api("/vice-president", { method: "DELETE" });
       setMsg("Vice President removed.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function assignSecretary(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignSecId) return;
+    setError(""); setMsg("");
+    try {
+      await api("/secretary", { method: "POST", body: { user_id: Number(assignSecId) } });
+      setMsg("Secretary updated.");
+      setAssignSecId("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function removeSecretary() {
+    if (!confirm("Remove the current Secretary? They keep their Core Head role.")) return;
+    setError(""); setMsg("");
+    try {
+      await api("/secretary", { method: "DELETE" });
+      setMsg("Secretary removed.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function assignTreasurer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignTreasId) return;
+    setError(""); setMsg("");
+    try {
+      await api("/treasurer", { method: "POST", body: { user_id: Number(assignTreasId) } });
+      setMsg("Treasurer updated.");
+      setAssignTreasId("");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function removeTreasurer() {
+    if (!confirm("Remove the current Treasurer? They keep their Core Head role.")) return;
+    setError(""); setMsg("");
+    try {
+      await api("/treasurer", { method: "DELETE" });
+      setMsg("Treasurer removed.");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -1503,6 +1567,68 @@ function AdminTab() {
             </select>
           </Field>
           <button className="btn-primary btn-sm" type="submit">Assign Vice President</button>
+        </form>
+      </div>
+
+      {/* Secretary */}
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 6 }}>Secretary</h3>
+        <p className="card-muted" style={{ marginBottom: 18, lineHeight: 1.6 }}>
+          The Secretary is a Core Head responsible for administrative duties.
+          There can be only one. A person cannot hold another leadership title simultaneously.
+        </p>
+        <div className="split" style={{ padding: "14px 16px", background: "var(--grey-50)", borderRadius: 12, marginBottom: 18 }}>
+          <div>
+            <div className="detail-meta-label">Current Secretary</div>
+            <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
+              {secretary ? secretary.name : "— none —"}
+            </div>
+            {secretary && <div className="text-mono text-sm text-muted">{users.find((candidate) => candidate.id === secretary.id)?.email ?? ""}</div>}
+          </div>
+          {secretary && <button className="btn-danger btn-sm" onClick={removeSecretary}>Remove</button>}
+        </div>
+
+        <form onSubmit={assignSecretary}>
+          <Field label="Assign Secretary (must be a Core Head)" required>
+            <select className="select" value={assignSecId} onChange={(e) => setAssignSecId(e.target.value)} required>
+              <option value="">Select a Core Head…</option>
+              {coreHeads.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+          </Field>
+          <button className="btn-primary btn-sm" type="submit">Assign Secretary</button>
+        </form>
+      </div>
+
+      {/* Treasurer */}
+      <div className="card" style={{ padding: 24 }}>
+        <h3 className="card-title" style={{ fontSize: 17, marginBottom: 6 }}>Treasurer</h3>
+        <p className="card-muted" style={{ marginBottom: 18, lineHeight: 1.6 }}>
+          The Treasurer is a Core Head responsible for managing club finances.
+          There can be only one. A person cannot hold another leadership title simultaneously.
+        </p>
+        <div className="split" style={{ padding: "14px 16px", background: "var(--grey-50)", borderRadius: 12, marginBottom: 18 }}>
+          <div>
+            <div className="detail-meta-label">Current Treasurer</div>
+            <div style={{ fontWeight: 700, color: "var(--grey-900)", fontSize: 16 }}>
+              {treasurer ? treasurer.name : "— none —"}
+            </div>
+            {treasurer && <div className="text-mono text-sm text-muted">{users.find((candidate) => candidate.id === treasurer.id)?.email ?? ""}</div>}
+          </div>
+          {treasurer && <button className="btn-danger btn-sm" onClick={removeTreasurer}>Remove</button>}
+        </div>
+
+        <form onSubmit={assignTreasurer}>
+          <Field label="Assign Treasurer (must be a Core Head)" required>
+            <select className="select" value={assignTreasId} onChange={(e) => setAssignTreasId(e.target.value)} required>
+              <option value="">Select a Core Head…</option>
+              {coreHeads.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+          </Field>
+          <button className="btn-primary btn-sm" type="submit">Assign Treasurer</button>
         </form>
       </div>
 

@@ -59,34 +59,9 @@ body {
   overflow-x: hidden;
 }
 
-/* ===== Grayscale image effect =====
-   All <img> tags are desaturated by default.
-   Hover (desktop) or .img-colored class (mobile tap) restores full colour.
-   Gallery grid photos (.gallery-grid img) are always full colour.
-   ===================================== */
 img {
-  filter: grayscale(100%);
-  transition: filter 0.45s ease;
-}
-/* Desktop hover restores colour */
-@media (hover: hover) {
-  img:hover {
-    filter: none;
-  }
-}
-/* Mobile tap — class toggled by GrayscaleTouch component */
-img.img-colored {
-  filter: none !important;
-}
-/* Gallery photos always stay in full colour */
-.gallery-grid img {
-  filter: none !important;
-  transition: none;
-}
-/* Avatar images follow their container's hover state */
-.account-trigger:hover .avatar img,
-.account-trigger:focus .avatar img {
-  filter: none;
+  max-width: 100%;
+  height: auto;
 }
 
 ::selection {

@@ -60,10 +60,10 @@ function AnimatedStat({ end, suffix = "+", label }: StatProps) {
 }
 
 const stats = [
-  { end: 500, suffix: "+", label: "Members" },
-  { end: 42, suffix: "+", label: "Events Conducted" },
-  { end: 128, suffix: "+", label: "Projects Submitted" },
-  { end: 320, suffix: "+", label: "Certifications Issued" },
+  { end: 35, suffix: "", label: "Members" },
+  { end: 10, suffix: "+", label: "Events Conducted" },
+  { end: 200, suffix: "+", label: "Projects Submitted" },
+  { end: 2500, suffix: "+", label: "Certificates Issued" },
 ];
 
 export default function StatsBar() {

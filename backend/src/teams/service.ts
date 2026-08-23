@@ -290,4 +290,51 @@ export function removeTeamMember(actor: ActorLike, teamId: Id, userId: Id): { ok
   return { ok: true };
 }
 
+export interface PublicCoreMember {
+  user_id: number;
+  name: string;
+  role: Role;
+  club_title: string | null;
+  designation: string;
+  team_name: string;
+  profile_photo_url: string | null;
+  display_order: number;
+  created_at: string;
+}
+
+export function listCoreMembers(): PublicCoreMember[] {
+  const rows = db.prepare<TeamMemberRow & { team_name: string; created_at: string }>(`
+    SELECT 
+      u.id as user_id,
+      u.name,
+      u.role,
+      u.club_title,
+      COALESCE(tm.designation, '') as designation,
+      COALESCE(t.name, CASE WHEN u.club_title IS NOT NULL THEN 'Leadership' ELSE 'Core Team' END) as team_name,
+      u.profile_photo_path,
+      COALESCE(tm.display_order, 0) as display_order,
+      u.created_at
+    FROM users u
+    LEFT JOIN team_members tm ON tm.user_id = u.id
+    LEFT JOIN teams t ON t.id = tm.team_id
+    WHERE (u.role IN ('core_head', 'core') OR u.club_title IN ('President', 'Vice President'))
+    GROUP BY u.id
+    ORDER BY u.created_at ASC, u.name ASC
+  `).all();
+
+  return rows.map((row) => ({
+    user_id: row.user_id,
+    name: row.name,
+    role: row.role,
+    club_title: row.club_title || null,
+    designation: row.designation || '',
+    team_name: row.team_name,
+    profile_photo_url: publicImageReference(row.profile_photo_path),
+    display_order: row.display_order,
+    created_at: row.created_at,
+  }));
+}
+
 export { publicTeam };
+
+

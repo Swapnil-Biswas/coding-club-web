@@ -58,7 +58,7 @@ export default function Hero() {
         <div className="hero-left">
           <div className="hero-eyebrow">
             <span className="hero-eyebrow-dot" />
-            <span>CODING CLUB · EST. 2018</span>
+            <span>CODING CLUB · EST. 2019</span>
             <Cursor />
           </div>
 

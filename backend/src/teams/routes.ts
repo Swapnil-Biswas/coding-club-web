@@ -15,6 +15,7 @@ import {
   getTeamById,
   publicTeam,
   publicTeamMembers,
+  listCoreMembers,
   createTeam,
   updateTeam,
   deleteTeam,
@@ -26,6 +27,11 @@ import {
 import { getTeamDashboard } from './dashboard.js';
 
 export const teamsRouter = Router();
+
+// GET /teams/core/members — public list of core team and leadership (President, VP, Core Heads, Cores)
+teamsRouter.get('/core/members', asyncHandler(async (_req, res) => {
+  res.json({ members: listCoreMembers() });
+}));
 
 // GET /teams — public list of teams
 teamsRouter.get('/', asyncHandler(async (_req, res) => {

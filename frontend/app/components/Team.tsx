@@ -11,19 +11,52 @@ import { Spinner, EmptyState } from "./app/ui";
 interface FlatMember {
   user_id: number;
   name: string;
+  role: string;
+  club_title: string | null;
   title: string; // club_title or designation or '<role>'
   team: string;
   photo: string | null;
+  display_order: number;
+  created_at?: string | null;
 }
 
 export default function TeamSection({ preview = true }: { preview?: boolean }) {
-  const [teams, setTeams] = useState<(Team & { members: TeamMember[] })[] | null>(null);
+  const [members, setMembers] = useState<FlatMember[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        // Try dedicated public core & leadership endpoint first
+        try {
+          const res = await api<{ members: any[] }>("/teams/core/members");
+          if (!cancelled && Array.isArray(res.members) && res.members.length > 0) {
+            const parsed: FlatMember[] = res.members.map((m) => ({
+              user_id: m.user_id,
+              name: m.name,
+              role: m.role,
+              club_title: m.club_title || null,
+              title:
+                m.club_title === "President"
+                  ? "President"
+                  : m.club_title === "Vice President"
+                  ? "Vice President"
+                  : m.role === "core_head"
+                  ? m.club_title || (m.designation && m.designation !== "Associate" ? m.designation : "Core Head")
+                  : m.designation || "Core",
+              team: m.team_name || "Core Team",
+              photo: m.profile_photo_url || null,
+              display_order: m.display_order || 0,
+              created_at: m.created_at || null,
+            }));
+            setMembers(parsed);
+            return;
+          }
+        } catch {
+          // fallback to /teams listing below
+        }
+
         const list = await api<{ teams: Team[] }>("/teams");
         const withMembers = await Promise.all(
           list.teams.map(async (t) => {
@@ -35,7 +68,35 @@ export default function TeamSection({ preview = true }: { preview?: boolean }) {
             }
           }),
         );
-        if (!cancelled) setTeams(withMembers);
+        if (cancelled) return;
+        const seen = new Map<number, FlatMember>();
+        for (const t of withMembers) {
+          for (const m of t.members) {
+            if (!["core", "core_head", "admin"].includes(m.role)) continue;
+            const title =
+              m.club_title === "President"
+                ? "President"
+                : m.club_title === "Vice President"
+                ? "Vice President"
+                : m.role === "core_head"
+                ? m.club_title || "Core Head"
+                : m.designation || "Core";
+            if (!seen.has(m.user_id)) {
+              seen.set(m.user_id, {
+                user_id: m.user_id,
+                name: m.name,
+                role: m.role,
+                club_title: m.club_title || null,
+                title,
+                team: t.name,
+                photo: m.profile_photo_url,
+                display_order: m.display_order || 0,
+                created_at: m.joined_at || null,
+              });
+            }
+          }
+        }
+        setMembers(Array.from(seen.values()));
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load team");
       }
@@ -45,29 +106,46 @@ export default function TeamSection({ preview = true }: { preview?: boolean }) {
     };
   }, []);
 
-  const members = useMemo<FlatMember[]>(() => {
-    if (!teams) return [];
-    const seen = new Map<number, FlatMember>();
-    for (const t of teams) {
-      for (const m of t.members) {
-        // Only show Core / Core Head / admin on the public grid.
-        if (!["core", "core_head", "admin"].includes(m.role)) continue;
-        const title = m.role === "core_head" ? m.club_title || "Core Head" : m.designation || "Core";
-        if (!seen.has(m.user_id)) {
-          seen.set(m.user_id, {
-            user_id: m.user_id,
-            name: m.name,
-            title,
-            team: t.name,
-            photo: m.profile_photo_url,
-          });
-        }
-      }
-    }
-    return Array.from(seen.values());
-  }, [teams]);
+  const sortedMembers = useMemo<FlatMember[]>(() => {
+    if (!members) return [];
+    return [...members].sort((a, b) => {
+      const getRank = (m: FlatMember) => {
+        const title = (m.club_title || m.title || "").trim().toLowerCase();
+        if (title === "president") return 0;
+        if (title === "vice president" || title === "vice-president") return 1;
+        if (m.role === "core_head" || m.role === "admin") return 2;
+        if (m.role === "core") return 3;
+        return 4;
+      };
+      const ra = getRank(a);
+      const rb = getRank(b);
+      if (ra !== rb) return ra - rb;
 
-  const shown = preview ? members.slice(0, 8) : members;
+      // Within Core tier (rank 3): sort strictly by registration date (earliest first)
+      if (ra === 3) {
+        if (a.created_at && b.created_at) {
+          const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          if (diff !== 0) return diff;
+        }
+        return a.name.localeCompare(b.name);
+      }
+
+      // For Core Heads: display_order, then registration date, then name
+      if (ra === 2) {
+        if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+        if (a.created_at && b.created_at) {
+          const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          if (diff !== 0) return diff;
+        }
+        return a.name.localeCompare(b.name);
+      }
+
+      if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+      return a.name.localeCompare(b.name);
+    });
+  }, [members]);
+
+  const shown = preview ? sortedMembers.slice(0, 8) : sortedMembers;
 
   return (
     <section className="team" id="team">
@@ -87,13 +165,13 @@ export default function TeamSection({ preview = true }: { preview?: boolean }) {
 
         <GlyphDivider label="CORE" />
 
-        {teams === null && !error && <Spinner label="Loading team" />}
+        {members === null && !error && <Spinner label="Loading team" />}
         {error && <EmptyState title="Couldn't load the team" body={error} />}
-        {teams && shown.length === 0 && (
+        {members && shown.length === 0 && (
           <EmptyState title="Team coming together" body="Our core team roster is being assembled." />
         )}
 
-        {teams && shown.length > 0 && (
+        {members && shown.length > 0 && (
           <>
             <div className="team-grid">
               {shown.map((m, i) => (

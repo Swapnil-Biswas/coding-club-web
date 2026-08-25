@@ -30,8 +30,8 @@ export default function Events() {
       try {
         const data = await api<{ events: ClubEvent[] }>("/events");
         if (cancelled) return;
-        // Only show published events on the landing highlight; upcoming first.
-        const published = data.events.filter((e) => e.status === "published");
+        // Only show non-draft events on the landing highlight; upcoming first.
+        const published = data.events.filter((e) => e.status !== "draft");
         published.sort((a, b) => {
           const pa = eventPhase(a) === "live" ? 0 : eventPhase(a) === "upcoming" ? 1 : 2;
           const pb = eventPhase(b) === "live" ? 0 : eventPhase(b) === "upcoming" ? 1 : 2;

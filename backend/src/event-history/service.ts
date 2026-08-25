@@ -18,12 +18,12 @@ function publicEventHistory(row: EventHistoryRow | null | undefined): PublicEven
 function eventVisible(viewer: ActorLike | null | undefined, event: EventRow | null | undefined): boolean {
   if (!event) return false;
   if (viewer && viewer.role === 'admin') return true;
-  if (viewer && (viewer.role === 'core' || viewer.role === 'core_head')) return true;
+  if (viewer && (viewer.role === 'core' || viewer.role === 'core_head' || viewer.role === 'faculty')) return true;
   if (viewer && viewer.role === 'member') {
-    return event.status === 'published';
+    return event.status === 'published' || event.status === 'completed';
   }
   // public / logged out
-  return event.status === 'published' && event.visibility === 'public';
+  return (event.status === 'published' || event.status === 'completed') && event.visibility === 'public';
 }
 
 export interface EventHistoryPayload {

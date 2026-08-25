@@ -6,6 +6,7 @@ import { AuthProvider } from "./lib/auth";
 import SiteHeader from "./components/app/SiteHeader";
 import AuthModal from "./components/app/AuthModal";
 import Footer from "./components/Footer";
+import ConsoleEasterEgg from "./components/app/ConsoleEasterEgg";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -51,6 +52,7 @@ export default function RootLayout({
           {children}
           <Footer />
           <AuthModal />
+          <ConsoleEasterEgg />
         </AuthProvider>
       </body>
     </html>

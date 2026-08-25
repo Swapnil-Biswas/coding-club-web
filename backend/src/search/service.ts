@@ -22,7 +22,7 @@ export function search(
   const eventWhere =
     actor && ['core', 'core_head', 'admin'].includes(actor.role)
       ? `WHERE (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR venue LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')`
-      : `WHERE status = 'published' AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR venue LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')`;
+      : `WHERE status IN ('published', 'completed') AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR venue LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')`;
   const events = db
     .prepare<SearchEvent>(
       `SELECT id, title, status, start_datetime, venue, category

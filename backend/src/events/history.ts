@@ -31,14 +31,12 @@ export function getPublicEventHistory(
   if (!event) throw new HttpError(404, 'event not found');
 
   // Visibility check (reuse events visibility logic)
-  if (viewer && viewer.role === 'admin') {
-    // admin sees all
-  } else if (viewer && (viewer.role === 'core' || viewer.role === 'core_head')) {
-    // core+ sees all
+  if (viewer && (viewer.role === 'admin' || viewer.role === 'core' || viewer.role === 'core_head' || viewer.role === 'faculty')) {
+    // core+ and faculty see all
   } else if (viewer && viewer.role === 'member') {
-    if (event.status !== 'published') throw new HttpError(404, 'event not found');
+    if (event.status !== 'published' && event.status !== 'completed') throw new HttpError(404, 'event not found');
   } else {
-    if (event.status !== 'published' || event.visibility !== 'public') {
+    if ((event.status !== 'published' && event.status !== 'completed') || event.visibility !== 'public') {
       throw new HttpError(404, 'event not found');
     }
   }

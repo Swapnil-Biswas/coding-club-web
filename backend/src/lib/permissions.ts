@@ -322,8 +322,8 @@ export function canPostAnnouncement(actor: ActorLike | null | undefined, event: 
 
 export function canViewAnnouncements(actor: ActorLike | null | undefined, event: EventRow | null | undefined): boolean {
   if (!event) return false;
-  // Anyone can view announcements for a published event
-  if (event.status === 'published') return true;
+  // Anyone can view announcements for a published or completed event
+  if (event.status === 'published' || event.status === 'completed') return true;
   // Otherwise need to be logged in and have access
   if (!actor) return false;
   if (isAdmin(actor)) return true;

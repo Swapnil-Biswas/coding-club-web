@@ -33,6 +33,7 @@ import { activityLogRouter } from './activity-log/routes.js';
 import { searchRouter } from './search/routes.js';
 import { projectsRouter } from './projects/routes.js';
 import { mentorsRouter } from './mentors/routes.js';
+import { arcadeRouter } from './arcade/routes.js';
 import { HttpError } from './lib/errors.js';
 import {
   processManagedImageDeletionQueue,
@@ -307,7 +308,21 @@ app.use('/activity-log', activityLogRouter);
 app.use('/', searchRouter);
 app.use('/projects', projectsRouter);
 app.use('/mentors', mentorsRouter);
+app.use('/arcade', arcadeRouter);
 
+
+// Script Kiddie Honeypot Route (Roast automated scanners & curl /admin attempts)
+app.all(['/admin', '/admin/*'], (_req, res) => {
+  res.status(418).json({
+    status: 418,
+    error: 'ACCESS_DENIED_SCRIPT_KIDDIE',
+    message: "Did you really think the admin panel was unauthenticated on /admin in 2026? 💀",
+    roast: "Bro typed /admin and expected root access. Go solve Two Sum first.",
+    threat_level: "DEFCON_TODDLER",
+    actual_admin_panel: "Nice try. We don't expose routes to strangers. Figure it out yourself.",
+    join_club: "Visit /join to learn actual software engineering and cybersecurity.",
+  });
+});
 
 // 404
 app.use((req, res) => {

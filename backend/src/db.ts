@@ -389,6 +389,15 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_managed_image_deletion_due
     ON managed_image_deletion_queue(next_attempt_at);
+
+  -- Easter Egg: Retro Arcade Global High Scores
+  CREATE TABLE IF NOT EXISTS arcade_global_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    score INTEGER NOT NULL,
+    player_name TEXT NOT NULL DEFAULT 'BMSIT Anonymous',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_arcade_global_score ON arcade_global_scores(score DESC);
 `);
 
 function hasColumn(table: string, column: string): boolean {
@@ -435,3 +444,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at_epoch);
   CREATE INDEX IF NOT EXISTS idx_email_verifications_expiry ON email_verifications(expires_at_epoch);
 `);
+
+// Seed default initial global high score if empty
+const initialScore = db.prepare<{ count: number }>(`SELECT COUNT(*) as count FROM arcade_global_scores`).get();
+if (!initialScore || initialScore.count === 0) {
+  db.prepare(`INSERT INTO arcade_global_scores (score, player_name) VALUES (?, ?)`).run(1337, 'BMSIT_ROOT');
+}
+

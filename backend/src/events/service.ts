@@ -47,8 +47,8 @@ export function canForceComplete(role: Role): boolean {
 // --- Visibility rules ----------------------------------------------------
 
 // What can this viewer see, given their role?
-//   public/logged-out:  published + public
-//   member:             published + (public OR member_only)
+//   public/logged-out:  (published OR completed) + public
+//   member:             (published OR completed) + (public OR member_only)
 //   core/core_head/admin: everything, including drafts
 //   faculty: observer — sees all events including drafts (read-only)
 function visibilityClause(viewer: ActorLike | null | undefined): { sql: string; params: unknown[] } {
@@ -57,11 +57,11 @@ function visibilityClause(viewer: ActorLike | null | undefined): { sql: string; 
     return { sql: '1=1', params: [] };
   }
   if (viewer && viewer.role === 'member') {
-    // member sees published events of either visibility.
-    return { sql: `status = 'published'`, params: [] };
+    // member sees published and completed events of either visibility.
+    return { sql: `status IN ('published', 'completed')`, params: [] };
   }
-  // public / logged-out: published public only.
-  return { sql: `status = 'published' AND visibility = 'public'`, params: [] };
+  // public / logged-out: published or completed public only.
+  return { sql: `status IN ('published', 'completed') AND visibility = 'public'`, params: [] };
 }
 
 // --- Mapping -------------------------------------------------------------

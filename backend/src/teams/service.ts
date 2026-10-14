@@ -61,11 +61,31 @@ function publicTeam(row: TeamRow | null | undefined): PublicTeam | null {
 
 // --- Queries ------------------------------------------------------------
 
-// List all teams with owner info. Public.
+// List all teams with lead/owner info. Public.
 export function listTeams(): Array<PublicTeam | null> {
   const rows = db
     .prepare<TeamRow>(
-      `SELECT t.*, u.name as owner_name
+      `SELECT t.*,
+              COALESCE(
+                (
+                  SELECT GROUP_CONCAT(u2.name, ', ')
+                  FROM (
+                    SELECT u3.name
+                    FROM team_members tm2
+                    JOIN users u3 ON u3.id = tm2.user_id
+                    WHERE tm2.team_id = t.id AND LOWER(TRIM(tm2.designation)) = 'head'
+                    ORDER BY tm2.display_order ASC, u3.name ASC
+                  ) u2
+                ),
+                (
+                  SELECT u4.name
+                  FROM team_members tm3
+                  JOIN users u4 ON u4.id = tm3.user_id
+                  WHERE tm3.team_id = t.id AND LOWER(TRIM(u4.club_title)) = 'president'
+                  LIMIT 1
+                ),
+                u.name
+              ) as owner_name
        FROM teams t
        LEFT JOIN users u ON u.id = t.owner_core_head_id
        ORDER BY t.name ASC`,
@@ -77,7 +97,27 @@ export function listTeams(): Array<PublicTeam | null> {
 export function getTeamById(id: Id): TeamRow | undefined {
   return db
     .prepare<TeamRow>(
-      `SELECT t.*, u.name as owner_name
+      `SELECT t.*,
+              COALESCE(
+                (
+                  SELECT GROUP_CONCAT(u2.name, ', ')
+                  FROM (
+                    SELECT u3.name
+                    FROM team_members tm2
+                    JOIN users u3 ON u3.id = tm2.user_id
+                    WHERE tm2.team_id = t.id AND LOWER(TRIM(tm2.designation)) = 'head'
+                    ORDER BY tm2.display_order ASC, u3.name ASC
+                  ) u2
+                ),
+                (
+                  SELECT u4.name
+                  FROM team_members tm3
+                  JOIN users u4 ON u4.id = tm3.user_id
+                  WHERE tm3.team_id = t.id AND LOWER(TRIM(u4.club_title)) = 'president'
+                  LIMIT 1
+                ),
+                u.name
+              ) as owner_name
        FROM teams t
        LEFT JOIN users u ON u.id = t.owner_core_head_id
        WHERE t.id = ?`,

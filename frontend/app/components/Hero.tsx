@@ -102,35 +102,6 @@ export default function Hero() {
             </Link>
           </div>
 
-          {/* ── Something Big Is Coming teaser banner ─────────────── */}
-          <div className="hero-teaser">
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#ffd700",
-                flexShrink: 0,
-                animation: "pulse 1.4s ease-in-out infinite",
-                boxShadow: "0 0 8px 2px rgba(255,215,0,0.6)",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                letterSpacing: "0.08em",
-                color: "rgba(255,215,0,0.85)",
-                lineHeight: 1.5,
-              }}
-            >
-              SOMETHING BIG IS COMING.{" "}
-              <span style={{ color: "var(--grey-400)", fontStyle: "italic" }}>
-                Stay tuned.
-              </span>
-            </span>
-          </div>
 
           <div className="hero-strip" aria-hidden="true">
             <span />

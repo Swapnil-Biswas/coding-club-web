@@ -707,7 +707,7 @@ export default function ArcadeGame() {
                 }}
               >
                 <div style={{ color: "#f59e0b", fontSize: "13px", fontWeight: 800, marginBottom: "4px" }}>
-                  👑 NEW GLOBAL HIGH SCORE RECORD!
+                  ★ NEW GLOBAL HIGH SCORE RECORD!
                 </div>
                 <div style={{ color: "#fde68a", fontSize: "11px", marginBottom: "10px" }}>
                   You surpassed {globalLeader}&apos;s record of {globalHighScore} pts!

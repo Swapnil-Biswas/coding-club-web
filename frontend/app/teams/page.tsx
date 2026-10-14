@@ -54,12 +54,15 @@ export default function TeamsPage() {
 function sortMembers(members: TeamMember[]): TeamMember[] {
   const titleRank = (m: TeamMember): number => {
     const t = (m.club_title ?? "").trim().toLowerCase();
+    const d = (m.designation ?? "").trim().toLowerCase();
     if (t === "president") return 0;
     if (t === "vice president" || t === "vice-president") return 1;
     if (t === "secretary") return 2;
     if (t === "treasurer") return 3;
-    if (m.role === "core_head" || m.role === "admin") return 4;
-    return 5;
+    if (d === "head" || d === "team head" || d === "co-head") return 4;
+    if (m.role === "core_head" || m.role === "admin") return 5;
+    if (d === "vice-head" || d === "vice head") return 6;
+    return 7;
   };
   return [...members].sort((a, b) => {
     const ra = titleRank(a);
@@ -91,6 +94,26 @@ function TeamBlock({ team }: { team: Team }) {
 
   const sorted = members ? sortMembers(members) : null;
 
+  // Whoever has the role/designation of head should appear in the lead badge
+  const heads = (members ?? [])
+    .filter((m) => {
+      const des = (m.designation ?? "").trim().toLowerCase();
+      const title = (m.club_title ?? "").trim().toLowerCase();
+      if (des === "head" || des === "team head" || des === "co-head") return true;
+      if (title === "president") return true;
+      if (m.role === "core_head" && (!m.designation || des === "head")) return true;
+      return false;
+    })
+    .sort((a, b) => {
+      if (a.display_order !== b.display_order) return a.display_order - b.display_order;
+      return a.name.localeCompare(b.name);
+    });
+
+  const leadName =
+    heads.length > 0
+      ? heads.map((h) => h.name).join(", ")
+      : team.owner_name;
+
   return (
     <div className="card" style={{ padding: 28 }}>
       <div className="split split-start" style={{ marginBottom: members && members.length > 0 ? 22 : 0 }}>
@@ -108,8 +131,8 @@ function TeamBlock({ team }: { team: Team }) {
             {team.description && <p className="card-muted" style={{ marginTop: 4, maxWidth: 560 }}>{team.description}</p>}
           </div>
         </div>
-        {team.owner_name && (
-          <Badge variant="dark">Lead · {team.owner_name}</Badge>
+        {leadName && (
+          <Badge variant="dark">Lead · {leadName}</Badge>
         )}
       </div>
 

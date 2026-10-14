@@ -6,35 +6,54 @@ node_modules/
 .pnp.js
 
 # ========================
-# Environment Variables
+# Environment Variables & Secrets
 # ========================
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.cookies
+*.cookies.txt
+cookies*.txt
+
+# ========================
+# Database & Uploads
+# ========================
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+data/
+uploads/
+backend/uploads/
+backend/scratch/
+scratch/
 
 # ========================
 # Next.js (Frontend)
 # ========================
+.next/
 frontend/.next/
 frontend/out/
 frontend/tsconfig.tsbuildinfo
 frontend/*.log
 
 # ========================
-# Backend
+# Build Outputs
 # ========================
-backend/data.db
-backend/uploads/
-backend/*.log
-backend/*.cookies
-backend/cookies*.txt
+dist/
+backend/dist/
+build/
+out/
 
 # ========================
-# Root-level sensitive files
+# Large archive files
 # ========================
-cookies.txt
+*.zip
+*.tar.gz
+*.rar
 
 # ========================
 # Logs
@@ -47,22 +66,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ========================
-# Build Outputs
-# ========================
-dist/
-build/
-out/
-
-# ========================
-# OS Files
+# OS & Editor
 # ========================
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# ========================
-# Editor / IDE
-# ========================
 .vscode/
 .idea/
 *.suo
@@ -70,8 +78,4 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
-
-# ========================
-# Misc
-# ========================
 .claude/

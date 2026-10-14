@@ -19,6 +19,8 @@ import type {
   ProjectStatus,
   Mentor,
   Photo,
+  BuilderRepo,
+  BuilderRepoStatus,
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
 import ImageSourceInput from "@/app/components/app/ImageSourceInput";
@@ -73,6 +75,7 @@ const TABS = [
   { id: "sponsors",  label: "Partners" },
   { id: "requests",  label: "Join Requests" },
   { id: "content",   label: "About Page" },
+  { id: "builders",  label: "Builders" },
   { id: "projects",  label: "Projects" },
   { id: "mentors",   label: "Mentors" },
   { id: "admin",     label: "Admin" },
@@ -142,6 +145,7 @@ function DashboardInner() {
         {tab === "sponsors" && <SponsorsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "content" && <ContentTab />}
+        {tab === "builders" && <BuildersTab />}
         {tab === "projects" && admin && <ProjectsTab />}
         {tab === "mentors"  && admin && <MentorsTab />}
         {tab === "admin" && admin && <AdminTab />}
@@ -558,7 +562,13 @@ function MentorsTab() {
         <div className="modal-overlay" onClick={() => setDeactivateTarget(null)}>
           <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b", fontSize: 22 }}>⚠</div>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
             </div>
             <h2 className="modal-title" style={{ textAlign: "center", fontSize: 20, marginBottom: 8 }}>Deactivate mentor?</h2>
             <p className="modal-sub" style={{ textAlign: "center", marginBottom: 20 }}>
@@ -1644,6 +1654,212 @@ function AdminTab() {
   );
 }
 
+/* ============================ BUILDERS (core_head+) ============================ */
+
+const BUILDER_STATUS_STYLES: Record<BuilderRepoStatus, { bg: string; color: string; border: string }> = {
+  pending:  { bg: "rgba(212,160,23,0.08)",  color: "#a07800", border: "rgba(212,160,23,0.3)" },
+  approved: { bg: "rgba(30,126,52,0.07)",   color: "#1e7e34", border: "rgba(30,126,52,0.25)" },
+  rejected: { bg: "rgba(192,57,43,0.07)",   color: "#c0392b", border: "rgba(192,57,43,0.25)" },
+};
+
+function BuildersTab() {
+  const [repos, setRepos] = useState<BuilderRepo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<BuilderRepoStatus | "all">("pending");
+  const [reviewing, setReviewing] = useState<BuilderRepo | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<BuilderRepoStatus>("approved");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const params = statusFilter !== "all" ? `?status=${statusFilter}` : "?status=all";
+      const d = await api<{ repos: BuilderRepo[] }>(`/builders${params}`);
+      setRepos(d.repos);
+    } catch { setRepos([]); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { load(); }, [statusFilter]);
+
+  async function handleReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (!reviewing) return;
+    setSaving(true); setErr(""); setOk("");
+    try {
+      await api(`/builders/${reviewing.id}/review`, {
+        method: "PATCH",
+        body: { status: reviewStatus, review_notes: reviewNotes },
+      });
+      setOk(`Repo ${reviewStatus === "approved" ? "approved" : "rejected"} successfully.`);
+      setReviewing(null);
+      load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(repo: BuilderRepo) {
+    if (!confirm(`Remove "${repo.repo_name}"?`)) return;
+    try {
+      await api(`/builders/${repo.id}`, { method: "DELETE" });
+      load();
+    } catch (e) { alert(e instanceof Error ? e.message : "Delete failed"); }
+  }
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>BMSIT Builders Review</div>
+          <div style={{ fontSize: 14, color: "var(--grey-600)" }}>{repos.length} submission{repos.length !== 1 ? "s" : ""}</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+            <button
+              key={s}
+              className={statusFilter === s ? "btn-primary" : "btn-secondary"}
+              style={{ fontSize: "0.78rem", padding: "5px 12px" }}
+              onClick={() => setStatusFilter(s === "all" ? "all" : s as BuilderRepoStatus)}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {ok && (
+        <div className="form-success" style={{ marginBottom: 16 }}>{ok}</div>
+      )}
+
+      {loading ? <Spinner /> : repos.length === 0 ? (
+        <EmptyState title="No submissions" body={`No ${statusFilter === "all" ? "" : statusFilter + " "}repo submissions found.`} />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {repos.map((repo) => {
+            const sc = BUILDER_STATUS_STYLES[repo.status];
+            return (
+              <div key={repo.id} className="card" style={{ padding: "16px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                      <span style={{
+                        fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
+                        textTransform: "uppercase", letterSpacing: "0.1em", padding: "3px 8px",
+                        borderRadius: 100, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+                      }}>{repo.status}</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--grey-400)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{repo.category}</span>
+                      {repo.looking_for_contributors && (
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#1e7e34", fontWeight: 600, letterSpacing: "0.06em" }}>● Seeking contributors</span>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: "var(--grey-900)", marginBottom: 2 }}>{repo.repo_name}</div>
+                    <a href={repo.repo_url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 12, color: "var(--grey-500)", wordBreak: "break-all", display: "block", marginBottom: 6 }}>
+                      {repo.repo_url}
+                    </a>
+                    <p style={{ fontSize: 13, color: "var(--grey-500)", lineHeight: 1.5, margin: 0 }}>{repo.description}</p>
+                    {repo.tags.length > 0 && (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+                        {repo.tags.map((t) => <span key={t} className="badge">#{t}</span>)}
+                      </div>
+                    )}
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--grey-400)", marginTop: 8, letterSpacing: "0.04em" }}>
+                      By <strong style={{ color: "var(--grey-600)" }}>{repo.submitter_name}</strong> · {formatDate(repo.created_at)}
+                      {repo.reviewer_name && <> · Reviewed by <strong style={{ color: "var(--grey-600)" }}>{repo.reviewer_name}</strong></>}
+                      {repo.review_notes && <> · <em style={{ color: "var(--grey-500)" }}>{repo.review_notes}</em></>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {repo.status === "pending" && (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => { setReviewing(repo); setReviewStatus("approved"); setReviewNotes(repo.review_notes); setErr(""); setOk(""); }}
+                        id={`dash-review-${repo.id}`}
+                      >
+                        Review
+                      </button>
+                    )}
+                    {repo.status !== "pending" && (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => { setReviewing(repo); setReviewStatus(repo.status); setReviewNotes(repo.review_notes); setErr(""); setOk(""); }}
+                        id={`dash-re-review-${repo.id}`}
+                      >
+                        Change
+                      </button>
+                    )}
+                    <button
+                      className="btn-secondary btn-sm btn-danger"
+                      onClick={() => handleDelete(repo)}
+                      id={`dash-delete-repo-${repo.id}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Inline review panel */}
+      {reviewing && (
+        <Modal open title={`Review: ${reviewing.repo_name}`} onClose={() => setReviewing(null)}>
+          <form onSubmit={handleReview} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: "12px 16px", background: "var(--grey-50)", border: "1px solid var(--grey-100)", borderRadius: 10, marginBottom: 4 }}>
+              <a href={reviewing.repo_url} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 13, color: "var(--grey-600)", wordBreak: "break-all", display: "block", marginBottom: 4 }}>
+                {reviewing.repo_url}
+              </a>
+              <p style={{ fontSize: 13, color: "var(--grey-500)", marginTop: 4, lineHeight: 1.5, margin: 0 }}>{reviewing.description}</p>
+            </div>
+            <Field label="Decision">
+              <div style={{ display: "flex", gap: 10 }}>
+                {(["approved", "rejected"] as BuilderRepoStatus[]).map((s) => {
+                  const sc = BUILDER_STATUS_STYLES[s as BuilderRepoStatus];
+                  return (
+                    <label key={s} style={{
+                      display: "flex", alignItems: "center", gap: 7, cursor: "pointer",
+                      padding: "8px 18px", borderRadius: 100, border: "1.5px solid",
+                      borderColor: reviewStatus === s ? sc.border : "var(--grey-200)",
+                      background: reviewStatus === s ? sc.bg : "transparent",
+                      color: reviewStatus === s ? sc.color : "var(--grey-500)",
+                      fontWeight: 600, fontSize: 13, transition: "all 0.15s",
+                    }}>
+                      <input type="radio" value={s} checked={reviewStatus === s}
+                        onChange={() => setReviewStatus(s as BuilderRepoStatus)} style={{ display: "none" }} />
+                      {s === "approved" ? "✓ Approve" : "✗ Reject"}
+                    </label>
+                  );
+                })}
+              </div>
+            </Field>
+            <Field label="Review notes" hint="Optional feedback for the submitter">
+              <textarea className="input" value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                rows={3} maxLength={1000} placeholder="Looks great! Please add a README first..."
+                id="dash-review-notes"
+              />
+            </Field>
+            <FormError>{err}</FormError>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" className="btn-secondary" onClick={() => setReviewing(null)} disabled={saving}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving} id="dash-review-submit">
+                {saving ? "Saving…" : "Save decision"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 /* ============================ PROJECTS (admin) ============================ */
 
 const PROJECT_CATEGORIES: { value: ProjectCategory; label: string }[] = [
@@ -1891,7 +2107,13 @@ function ProjectsTab() {
         <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
           <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b", fontSize: 22 }}>⚠</div>
+              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,0.1)", color: "#c0392b" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
             </div>
             <h2 className="modal-title" style={{ textAlign: "center", fontSize: 20, marginBottom: 8 }}>Delete project?</h2>
             <p className="modal-sub" style={{ textAlign: "center", marginBottom: 20 }}>

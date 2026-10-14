@@ -106,7 +106,13 @@ export default function EventsPage() {
                       <h3 className="card-title">{ev.title}</h3>
                       <p className="card-muted" style={{ flex: 1 }}>{ev.description}</p>
                       <div className="split" style={{ borderTop: "1px dashed var(--grey-200)", paddingTop: 14 }}>
-                        <span className="text-mono text-sm text-muted">📍 {ev.venue || "BMSIT"}</span>
+                        <span className="text-mono text-sm text-muted" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                          {ev.venue || "BMSIT"}
+                        </span>
                         <span className="badge">{p === "live" ? "Live" : p === "past" ? "Past" : "Details →"}</span>
                       </div>
                     </div>

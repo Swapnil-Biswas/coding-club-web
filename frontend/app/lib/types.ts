@@ -277,3 +277,34 @@ export interface Mentor {
   github_url?:      string | null;
   whatsapp_number?: string | null;
 }
+
+// BMSIT Builders
+export type BuilderRepoStatus = "pending" | "approved" | "rejected";
+export type BuilderRepoCategory =
+  | "web"
+  | "ai"
+  | "mobile"
+  | "open-source"
+  | "cli"
+  | "api"
+  | "game"
+  | "other";
+
+export interface BuilderRepo {
+  id: number;
+  submitted_by: number;
+  submitter_name: string | null;
+  repo_name: string;
+  repo_url: string;
+  description: string;
+  tags: string[];
+  category: BuilderRepoCategory;
+  looking_for_contributors: boolean;
+  status: BuilderRepoStatus;
+  reviewed_by: number | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+}

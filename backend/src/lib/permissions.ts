@@ -362,4 +362,34 @@ export function canViewActivityLog(actor: ActorLike | null | undefined): boolean
   return isAdmin(actor) || isPresident(actor);
 }
 
+// --- BMSIT Builders permissions -----------------------------------------
+
+// Any member+ can submit a repo.
+export function canSubmitBuilderRepo(actor: ActorLike | null | undefined): boolean {
+  if (!actor) return false;
+  return roleAtLeast(actor.role, 'member');
+}
+
+// core_head+ can review (approve/reject) submissions.
+export function canReviewBuilderRepo(actor: ActorLike | null | undefined): boolean {
+  if (!actor) return false;
+  return isSuperCoreHead(actor) || actor.role === 'core_head';
+}
+
+// admin / President can delete any repo. The submitter can delete their own
+// pending submission (before it's been approved/rejected).
+export function canDeleteBuilderRepo(
+  actor: ActorLike | null | undefined,
+  submittedBy: number,
+  status: string,
+): boolean {
+  if (!actor) return false;
+  if (isSuperCoreHead(actor)) return true;
+  // core_head: can also delete any pending/approved/rejected in their purview
+  if (actor.role === 'core_head') return true;
+  // submitter can retract their own *pending* submission
+  if (actor.id === submittedBy && status === 'pending') return true;
+  return false;
+}
+
 export { logActivity, notifyRegistrants };

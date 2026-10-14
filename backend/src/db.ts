@@ -380,6 +380,28 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_mentors_active ON mentors(is_active, sort_order);
 
+  -- BMSIT Builders: member-submitted open-source repos, reviewed by core_head+
+  CREATE TABLE IF NOT EXISTS builder_repos (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    submitted_by          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    repo_name             TEXT NOT NULL,
+    repo_url              TEXT NOT NULL,
+    description           TEXT NOT NULL DEFAULT '',
+    tags                  TEXT NOT NULL DEFAULT '',
+    category              TEXT NOT NULL DEFAULT 'other'
+                          CHECK (category IN ('web','ai','mobile','open-source','cli','api','game','other')),
+    looking_for_contributors INTEGER NOT NULL DEFAULT 1,
+    status                TEXT NOT NULL DEFAULT 'pending'
+                          CHECK (status IN ('pending','approved','rejected')),
+    reviewed_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reviewed_at           TEXT,
+    review_notes          TEXT NOT NULL DEFAULT '',
+    created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_builder_repos_status   ON builder_repos(status);
+  CREATE INDEX IF NOT EXISTS idx_builder_repos_submitter ON builder_repos(submitted_by);
+
   CREATE TABLE IF NOT EXISTS managed_image_deletion_queue (
     reference TEXT PRIMARY KEY,
     attempts INTEGER NOT NULL DEFAULT 0,

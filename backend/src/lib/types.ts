@@ -450,6 +450,48 @@ export interface FullMentor extends BasicMentor {
   whatsapp_number: string | null;
 }
 
+export type BuilderRepoStatus = 'pending' | 'approved' | 'rejected';
+export type BuilderRepoCategory = 'web' | 'ai' | 'mobile' | 'open-source' | 'cli' | 'api' | 'game' | 'other';
+
+export interface BuilderRepoRow {
+  id: number;
+  submitted_by: number;
+  repo_name: string;
+  repo_url: string;
+  description: string;
+  tags: string;
+  category: BuilderRepoCategory;
+  looking_for_contributors: number | boolean;
+  status: BuilderRepoStatus;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+  // joins
+  submitter_name?: string | null;
+  reviewer_name?: string | null;
+}
+
+export interface PublicBuilderRepo {
+  id: number;
+  submitted_by: number;
+  submitter_name: string | null;
+  repo_name: string;
+  repo_url: string;
+  description: string;
+  tags: string[];
+  category: BuilderRepoCategory;
+  looking_for_contributors: boolean;
+  status: BuilderRepoStatus;
+  reviewed_by: number | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AnalyticsTotals {
   total_users: number;
   total_events: number;

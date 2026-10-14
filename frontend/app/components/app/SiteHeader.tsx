@@ -11,6 +11,7 @@ import { Avatar } from "./ui";
 
 const publicLinks = [
   { label: "EVENTS",   href: "/events" },
+  { label: "BUILDERS", href: "/builders" },
   { label: "TEAM",     href: "/teams" },
   { label: "MENTORS",  href: "/mentors" },
   { label: "GALLERY",  href: "/gallery" },
@@ -44,24 +45,36 @@ export default function SiteHeader() {
   return (
     <header
       className="header"
-      style={{ borderBottomColor: scrolled ? "var(--grey-100)" : "transparent" }}
+      style={{
+        borderBottomColor: scrolled ? "var(--grey-100)" : "transparent",
+        // 3-column grid: logo | nav | auth — ensures nav is always truly centered
+        display: "grid",
+        gridTemplateColumns: "1fr auto 1fr",
+        alignItems: "center",
+      }}
     >
+      {/* Col 1: Logo (left-aligned within its column) */}
       <Link href="/" className="header-logo" id="header-logo">
         <span className="header-logo-cc">CC</span>
         <span className="header-logo-text">CODING CLUB</span>
       </Link>
 
+      {/* Col 2: Nav links — naturally centered by the grid */}
       <nav className="header-nav" id="header-nav">
         {publicLinks.map((l) => (
           <Link key={l.label} href={l.href} className="header-nav-link">
             {l.label}
           </Link>
         ))}
-        <AuthZone />
       </nav>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {/* Mobile: show bell + account icon too */}
+      {/* Col 3: Auth zone + mobile toggle (right-aligned within its column) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+        {/* Desktop: auth (hidden on mobile via CSS) */}
+        <div className="header-auth-desktop">
+          <AuthZone />
+        </div>
+        {/* Mobile: hamburger */}
         <button
           className="mobile-menu-btn"
           onClick={() => setMobileOpen(!mobileOpen)}

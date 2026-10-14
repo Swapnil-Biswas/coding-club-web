@@ -34,6 +34,7 @@ import { searchRouter } from './search/routes.js';
 import { projectsRouter } from './projects/routes.js';
 import { mentorsRouter } from './mentors/routes.js';
 import { arcadeRouter } from './arcade/routes.js';
+import { buildersRouter } from './builders/routes.js';
 import { HttpError } from './lib/errors.js';
 import {
   processManagedImageDeletionQueue,
@@ -309,6 +310,20 @@ app.use('/', searchRouter);
 app.use('/projects', projectsRouter);
 app.use('/mentors', mentorsRouter);
 app.use('/arcade', arcadeRouter);
+
+// BMSIT Builders: per-user submission rate limit (5 POST per hour).
+const buildersSubmitLimiter = rateLimit({
+  store: rateLimitStore('builders-post'),
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test' || req.method !== 'POST',
+  keyGenerator: (req) => String(req.user?.id ?? ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? 'unknown')),
+  message: { error: 'Too many repo submissions. Please wait before submitting again.' },
+});
+app.use('/builders', buildersSubmitLimiter);
+app.use('/builders', buildersRouter);
 
 
 // Script Kiddie Honeypot Route (Roast automated scanners & curl /admin attempts)

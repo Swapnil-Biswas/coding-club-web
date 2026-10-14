@@ -59,8 +59,8 @@ export default function About() {
         </div>
         <RevealOnScroll delay={150} className="about-image-wrapper">
           <Image
-            src="/20260518_154505 (1).jpg"
-            alt="Coding Club BMSIT community at a workshop event"
+            src="/IMG_7978.JPG (1).jpeg"
+            alt="Coding Club BMSIT community at Decode2Deploy event"
             fill
             sizes="(max-width: 1024px) 100vw, 50vw"
             style={{ objectFit: "cover" }}

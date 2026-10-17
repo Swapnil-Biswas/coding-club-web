@@ -35,6 +35,8 @@ import { projectsRouter } from './projects/routes.js';
 import { mentorsRouter } from './mentors/routes.js';
 import { arcadeRouter } from './arcade/routes.js';
 import { buildersRouter } from './builders/routes.js';
+import { recruitmentRouter } from './recruitment/routes.js';
+import { processSheetsOutbox } from './recruitment/sheets-worker.js';
 import { HttpError } from './lib/errors.js';
 import {
   processManagedImageDeletionQueue,
@@ -325,6 +327,20 @@ const buildersSubmitLimiter = rateLimit({
 app.use('/builders', buildersSubmitLimiter);
 app.use('/builders', buildersRouter);
 
+// Recruitment: strict limit for public application submissions
+// (2 per IP per 24 h — allows genuine retry without enabling abuse)
+const recruitmentSubmitLimiter = rateLimit({
+  store: rateLimitStore('recruitment-post'),
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 2,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test' || req.method !== 'POST' || !req.path.includes('/apply'),
+  message: { error: 'Too many application submissions from this IP. Please try again later.' },
+});
+app.use('/recruitment', recruitmentSubmitLimiter);
+app.use('/recruitment', recruitmentRouter);
+
 
 // Script Kiddie Honeypot Route (Roast automated scanners & curl /admin attempts)
 app.all(['/admin', '/admin/*'], (_req, res) => {
@@ -384,6 +400,19 @@ await removeStaleTemporaryUploads().catch((error) => {
 await runManagedFileCleanup();
 const cleanupTimer = setInterval(() => void runManagedFileCleanup(), 60_000);
 cleanupTimer.unref();
+
+// Google Sheets sync worker: runs every 2 minutes, processes the SQL outbox.
+// Never blocks the HTTP process — errors are logged and retried on next tick.
+let sheetsWorkerRunning = false;
+const sheetsWorkerTimer = setInterval(() => {
+  if (sheetsWorkerRunning) return;
+  sheetsWorkerRunning = true;
+  processSheetsOutbox()
+    .catch((e) => console.error('[sheets-worker] unhandled error', e))
+    .finally(() => { sheetsWorkerRunning = false; });
+}, 2 * 60_000);
+sheetsWorkerTimer.unref();
+
 
 const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {

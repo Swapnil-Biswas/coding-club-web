@@ -20,6 +20,7 @@ interface AuthContextValue {
   ready: boolean;
   refresh: () => Promise<void>;
   login: (email: string, password: string) => Promise<PublicUser>;
+  googleLogin: (credential: string) => Promise<PublicUser>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<PublicUser>;
   logout: () => Promise<void>;
@@ -98,6 +99,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   }, []);
 
+  const googleLogin = useCallback(
+    async (credential: string) => {
+      const data = await api<{ user: PublicUser }>("/auth/google", {
+        method: "POST",
+        body: { credential },
+      });
+      setUser(data.user);
+      setAuthModalOpen(false);
+      return data.user;
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     try {
       await api("/auth/logout", { method: "POST" });
@@ -113,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       refresh,
       login,
+      googleLogin,
       signup,
       verifyEmail,
       logout,
@@ -128,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       refresh,
       login,
+      googleLogin,
       signup,
       verifyEmail,
       logout,

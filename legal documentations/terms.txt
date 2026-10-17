@@ -1,0 +1,185 @@
+# Terms & Conditions
+
+**BMSIT Coding Club Website**
+
+**Last updated: 17 October 2026**
+
+These Terms & Conditions (“Terms”) govern your access to and use of https://bmsitcodingclub.space (the “Website”), operated by BMSIT Coding Club (“we”, “our”, or “us”).
+
+By accessing or using the Website, you agree to these Terms to the extent permitted by applicable law. If you do not agree, please discontinue use of the Website.
+
+For questions about these Terms, contact codingclub@bmsit.in.
+
+## 1. Purpose of the Website
+
+The Website provides online facilities associated with BMSIT Coding Club, which may include:
+
+- Information about the club and its activities.
+- User accounts and Google Sign-In.
+- Recruitment applications.
+- Event registration and administration.
+- Attendance management.
+- Certificate generation or verification.
+- Other club-related services introduced from time to time.
+
+Features may change as the Website develops.
+
+## 2. Eligibility and Accounts
+
+You must provide accurate information when using forms or creating an account and must not knowingly impersonate another person or misrepresent your identity.
+
+Where a feature requires an account, you are responsible for using an account you are authorized to access and for promptly reporting suspected unauthorized access.
+
+The Website currently assigns roles according to email-domain rules:
+
+- `@bmsit.in` accounts are assigned the `member` role.
+- `@gmail.com` accounts are assigned the `public` role.
+
+These rules control Website access and do not independently verify a user's identity, student status, staff status, or eligibility for a specific club activity. Additional eligibility checks may apply where announced.
+
+We may restrict access to features where necessary to maintain security, administer the Website, or enforce these Terms.
+
+## 3. Google Sign-In
+
+The Website may allow you to authenticate through Google Sign-In. Your use of that feature is also subject to Google's applicable terms and policies.
+
+You must use a Google account that you are authorized to access. You must not attempt to manipulate authentication responses, impersonate another user, or bypass the Website's access controls.
+
+Google Sign-In is an authentication mechanism. It does not guarantee membership in the club or eligibility for recruitment, events, awards, or certificates.
+
+## 4. Acceptable Use
+
+When using the Website, you agree not to:
+
+- Submit false, misleading, fraudulent, or impersonated information.
+- Access accounts, records, administrative functions, or systems without authorization.
+- Attempt to bypass authentication, role restrictions, application limits, or security controls.
+- Interfere with the Website's availability, integrity, or normal operation.
+- Introduce malicious software, scripts, or other harmful content.
+- Scrape, extract, publish, or misuse personal information without authorization.
+- Forge certificates, attendance records, application details, or other official-looking records.
+- Use the Website in a way that violates applicable law or infringes another person's rights.
+
+We may investigate suspected misuse and take proportionate action where appropriate.
+
+## 5. Recruitment Applications
+
+Recruitment applications are governed by the instructions, eligibility criteria, deadlines, and requirements published for the relevant recruitment cycle.
+
+Where the two-team application limit is enabled, each applicant may submit applications for no more than two teams for that cycle. The Website may enforce this limit through its application system.
+
+Applicants must submit accurate information and must not use duplicate or misleading identities to circumvent application limits.
+
+Submitting an application does not guarantee shortlisting, selection, membership, an interview, or any other outcome. Recruitment decisions are made according to the criteria and process applicable to the relevant cycle.
+
+We may correct administrative errors, investigate suspected misuse, or request clarification where reasonably necessary.
+
+## 6. Events, Attendance, and Certificates
+
+Event participation may be subject to separate event announcements, eligibility criteria, registration deadlines, capacity limits, and instructions issued by the organizers.
+
+Registration does not guarantee entry if an event has limited capacity or additional eligibility requirements.
+
+Attendance records may be used to administer events and determine participation or certificate eligibility. Certificates may be issued only where the applicable event or activity requirements are satisfied.
+
+Users must not falsify attendance, alter certificates without authorization, misrepresent participation, or claim an award or credential that was not issued to them.
+
+If you believe an attendance record or certificate contains an error, contact the club through codingclub@bmsit.in with the relevant details.
+
+## 7. Website Content and Intellectual Property
+
+Unless otherwise indicated, Website content, including its original text, design, graphics, software, branding, and other materials, is owned by or used with permission by the relevant rights holders.
+
+You may access and use the Website for lawful, personal, educational, and club-related purposes.
+
+You must not reproduce, modify, redistribute, commercially exploit, or represent Website content as your own where doing so is unauthorized or infringes applicable rights.
+
+Third-party names, logos, software, and materials remain the property of their respective owners and may be subject to separate terms.
+
+Nothing in these Terms transfers ownership of a user's original work to the club merely because it is submitted through the Website. Separate event, recruitment, or project rules may apply to submitted work where clearly communicated.
+
+## 8. User Submissions
+
+You are responsible for the information and materials you submit through the Website.
+
+You must have the rights and permissions necessary to submit that material. Do not submit another person's confidential information or personal information without appropriate authorization.
+
+You authorize the club to use submitted information to the extent reasonably necessary to process your application, administer events, manage attendance, issue certificates, and operate the relevant Website feature, subject to the Privacy Policy and applicable requirements.
+
+This section does not grant the club unrestricted ownership or commercial rights over submitted work.
+
+## 9. Privacy
+
+Your use of the Website is also governed by our Privacy Policy:
+
+https://bmsitcodingclub.space/privacy-policy
+
+The Privacy Policy explains how information is handled in connection with Google Sign-In, accounts, recruitment, events, attendance, certificates, and related Website features.
+
+Please review it before using features that require you to submit personal information.
+
+## 10. Availability and Changes
+
+We aim to maintain a useful and reliable Website but do not guarantee uninterrupted availability, error-free operation, or permanent availability of every feature.
+
+We may update, suspend, replace, or discontinue Website features for maintenance, security, operational, administrative, or other legitimate reasons.
+
+Where reasonably practicable, we will take appropriate steps to minimize disruption. We do not guarantee that every change or interruption can be notified in advance.
+
+## 11. Account Restrictions and Termination
+
+We may restrict, suspend, or terminate access to an account or feature where reasonably necessary to address suspected misuse, unauthorized access, security risks, violations of these Terms, or legitimate operational requirements.
+
+Where appropriate and practicable, we may notify the affected user and provide a means to contact us about the decision.
+
+Account restrictions do not remove any rights or obligations that apply under relevant law. Personal information associated with an account will be handled in accordance with the Privacy Policy and applicable retention requirements.
+
+## 12. Third-Party Services
+
+The Website may depend on or link to third-party services, including Google authentication and infrastructure providers.
+
+Those services may be subject to separate terms, privacy policies, availability conditions, and technical limitations.
+
+We do not control every aspect of third-party services and cannot guarantee their continued availability or operation.
+
+## 13. Disclaimers
+
+The Website and its features are provided on an as-available basis, subject to applicable law.
+
+We aim to keep information accurate and current, but administrative errors, outdated content, technical issues, or interruptions may occur.
+
+Nothing in these Terms excludes a right, remedy, guarantee, or liability that cannot lawfully be excluded or limited.
+
+## 14. Limitation of Liability
+
+To the extent permitted by applicable law, the club is not responsible for losses arising from unauthorized use of the Website, interruptions, third-party service failures, or inaccuracies that could not reasonably have been prevented.
+
+This provision does not exclude or limit liability where such exclusion or limitation is prohibited by law, including liability that cannot lawfully be disclaimed.
+
+Nothing in these Terms is intended to remove statutory rights available to users.
+
+## 15. Changes to These Terms
+
+We may revise these Terms when the Website, club processes, or applicable requirements change.
+
+Updated Terms will be published on this page with a revised date. Where required, we will provide appropriate notice or obtain agreement before applying material changes.
+
+Continued use of the Website after an update will be subject to applicable law and any consent requirements that apply to the changes.
+
+## 16. Applicable Law and Disputes
+
+These Terms are intended to be interpreted consistently with applicable laws of India.
+
+If a concern arises, we encourage you to contact the club first so that it can be reviewed and, where possible, resolved informally.
+
+**[CONFIRM BEFORE PUBLICATION: Have an authorized representative review the appropriate governing-law and jurisdiction wording, considering the club's legal status and any applicable institutional requirements.]**
+
+Nothing in this section prevents a person from exercising a right or remedy available under applicable law.
+
+## 17. Contact
+
+For questions about these Terms, recruitment, events, accounts, or Website access, contact:
+
+**BMSIT Coding Club**  
+Email: codingclub@bmsit.in  
+Website: https://bmsitcodingclub.space

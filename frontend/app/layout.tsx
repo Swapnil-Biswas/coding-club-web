@@ -3,8 +3,10 @@ import { Inter } from "next/font/google";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./lib/auth";
+import { RecruitmentProvider } from "./lib/recruitment";
 import SiteHeader from "./components/app/SiteHeader";
 import AuthModal from "./components/app/AuthModal";
+import RecruitmentBanner from "./components/app/RecruitmentBanner";
 import Footer from "./components/Footer";
 import ConsoleEasterEgg from "./components/app/ConsoleEasterEgg";
 
@@ -48,11 +50,14 @@ export default function RootLayout({
     >
       <body>
         <AuthProvider>
-          <SiteHeader />
-          {children}
-          <Footer />
-          <AuthModal />
-          <ConsoleEasterEgg />
+          <RecruitmentProvider>
+            <SiteHeader />
+            <RecruitmentBanner />
+            {children}
+            <Footer />
+            <AuthModal />
+            <ConsoleEasterEgg />
+          </RecruitmentProvider>
         </AuthProvider>
       </body>
     </html>

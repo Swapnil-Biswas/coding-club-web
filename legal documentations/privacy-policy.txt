@@ -1,0 +1,184 @@
+# Privacy Policy
+
+**BMSIT Coding Club Website**
+
+**Last updated: 17 October 2026**
+
+BMSIT Coding Club (“we”, “our”, or “us”) operates the website at https://bmsitcodingclub.space (the “Website”). This Privacy Policy explains how we collect, use, store, and handle personal information when you visit the Website, sign in, apply for recruitment, participate in club activities, or use related features.
+
+For questions or requests concerning this Privacy Policy, contact us at **codingclub@bmsit.in**.
+
+## 1. Information We Collect
+
+Depending on the features you use, we may collect the following categories of information.
+
+### 1.1 Google Sign-In and account information
+
+When you sign in using Google, we receive and process the information made available through the Google Sign-In process. This may include:
+
+- Your name.
+- Your email address.
+- Your Google account identifier.
+- Your profile picture, if requested and used by the Website.
+
+The exact information collected depends on the permissions requested and the implementation of Google Sign-In.
+
+We use this information to authenticate your account, create or update your Website account, associate activity with your account, and provide account-related features.
+
+We do not request access to Gmail messages, Google Drive files, contacts, or other Google services unless a feature explicitly requires such access and the relevant permission is requested.
+
+### 1.2 Account and session information
+
+We may process account identifiers, account roles, authentication-related information, and session-related data needed to maintain your signed-in state and protect your account.
+
+The Website assigns roles according to the account rules currently implemented:
+
+- An account using an `@bmsit.in` email address is assigned the `member` role.
+- An account using a `@gmail.com` email address is assigned the `public` role.
+
+These roles determine access to features available to each account category. Role assignment does not, by itself, constitute independent verification of a person's identity, college enrolment, or employment.
+
+### 1.3 Recruitment applications
+
+If you apply for recruitment through the Website, we may collect the information you submit in the application form, including identifying details, contact information, team information, responses, and other fields displayed in the form.
+
+Recruitment applications are subject to the limit of two team applications per applicant, where this rule applies to the relevant recruitment cycle.
+
+We use submitted information to process applications, administer recruitment, communicate with applicants, and maintain relevant application records.
+
+**[CONFIRM BEFORE PUBLICATION: List the actual recruitment form fields, whether applications are synchronized to Google Sheets, who can access the records, and how duplicate applications are identified.]**
+
+### 1.4 Events, attendance, and certificates
+
+When you register for or participate in a club event, we may process information needed to administer the event. Depending on the event, this may include registration details, team information, attendance records, participation status, and certificate details.
+
+We use this information to organize events, verify participation, manage check-in, issue certificates, and maintain relevant club records.
+
+The exact information collected will depend on the event and the features used.
+
+### 1.5 Technical information
+
+The Website or its hosting infrastructure may generate technical information necessary to operate and secure the service, such as request timestamps, error records, and security-related logs.
+
+**[CONFIRM BEFORE PUBLICATION: Verify which server logs, IP addresses, cookies, analytics tools, and other technical identifiers are actually collected. The Website does not intentionally use analytics or advertising trackers, but infrastructure-level logging must be checked separately.]**
+
+## 2. How We Use Information
+
+We use personal information only for purposes connected with operating and administering the Website, including:
+
+- Authenticating users and maintaining accounts.
+- Assigning account roles and enforcing access permissions.
+- Processing recruitment applications.
+- Organizing club events and managing attendance.
+- Issuing and verifying certificates.
+- Communicating about applications, events, accounts, and club activities.
+- Maintaining records needed for club administration.
+- Diagnosing errors, protecting accounts, preventing abuse, and securing the Website.
+- Responding to privacy requests and other legitimate enquiries.
+
+We do not intentionally use personal information for behavioural advertising. We do not use analytics or advertising trackers as part of the Website's intended functionality.
+
+## 3. Google Sign-In and Google User Data
+
+The Website uses Google Sign-In to authenticate users.
+
+Information received from Google is used for account authentication, account creation or updating, role assignment, and other account functions described in this Privacy Policy.
+
+We aim to request and use only the Google account information necessary for the features provided. We do not sell Google user data or use it to serve advertisements.
+
+Google account information may be stored in the Website's database when necessary to maintain your account. It may be processed by the authentication service and the infrastructure used to operate the Website.
+
+We do not intentionally disclose Google user data to unrelated third parties. Information may be processed by service providers operating the Website, or disclosed where necessary for security, legal obligations, or other purposes permitted by applicable law.
+
+The Website does not request Gmail or Google Drive access as part of the described sign-in functionality.
+
+Google processes information under its own privacy policies and terms. Your use of Google Sign-In is also subject to Google's applicable terms.
+
+## 4. Storage and Service Providers
+
+The Website uses a SQL database for relevant account and application records. Google Sheets may also be used for recruitment administration or related records, where that integration is enabled.
+
+**[CONFIRM BEFORE PUBLICATION: Identify the database hosting provider, hosting location, whether Google Sheets synchronization is active, the Google account or organization controlling those sheets, and the other infrastructure providers that may process personal information.]**
+
+Information may be processed by providers responsible for database hosting, application hosting, authentication, email delivery, backups, or other operational services, where those services are actually used.
+
+We aim to limit access to personal information to people and services that need it for their assigned responsibilities.
+
+## 5. Data Sharing
+
+We do not sell personal information.
+
+We may share or permit access to information in the following circumstances:
+
+- **Club administration:** Authorized club personnel may access relevant recruitment, event, attendance, or certificate records.
+- **Service providers:** Providers may process information to host, maintain, secure, or operate the Website.
+- **Event administration:** Relevant information may be shared with authorized event organizers when necessary to administer an event or verify participation.
+- **Legal and security matters:** Information may be disclosed where required by applicable law or reasonably necessary to address security incidents, fraud, abuse, or legal claims.
+
+We do not claim that every category of information is shared in every circumstance. Access and disclosure depend on the feature used and the purpose involved.
+
+## 6. Data Retention
+
+We retain personal information for as long as it is reasonably needed for the purpose for which it was collected, including account administration, recruitment, event management, certificate verification, security, and applicable recordkeeping requirements.
+
+When information is no longer needed, we intend to delete it or otherwise dispose of it appropriately, subject to applicable obligations and legitimate operational requirements.
+
+The actual retention period may differ between account records, recruitment applications, event attendance, certificates, backups, and security logs.
+
+**[CONFIRM BEFORE PUBLICATION: Establish actual retention periods and a deletion procedure for the SQL database, Google Sheets, backups, and relevant logs. Do not publish a fixed retention promise until it can be implemented.]**
+
+## 7. Security
+
+We use or intend to use reasonable technical and organizational measures appropriate to the Website's operation to protect personal information against unauthorized access, loss, alteration, or disclosure.
+
+These measures may include authentication controls, access restrictions, secure communications, and appropriate handling of credentials.
+
+No website or electronic storage system can be guaranteed to be completely secure. We cannot promise that unauthorized access or data loss will never occur.
+
+**[CONFIRM BEFORE PUBLICATION: Verify the security controls actually implemented, including session expiration, cookie settings, database permissions, backups, and incident-response procedures.]**
+
+## 8. Your Privacy Requests
+
+You may contact us at **codingclub@bmsit.in** to ask about personal information associated with your account or to request correction or deletion where applicable.
+
+Please describe your request and provide enough information for us to identify the relevant account or record. Do not send passwords, authentication tokens, or unnecessary sensitive information.
+
+We will review requests and respond in accordance with applicable requirements. Some records may need to be retained for legitimate administrative, security, or legal reasons.
+
+Deleting a Website account may not automatically revoke your Google account or remove copies already present in separate systems, backups, or records maintained under applicable retention requirements. Where appropriate, we will explain the scope of any deletion request.
+
+## 9. Cookies and Sessions
+
+The Website may use session cookies or other session mechanisms to maintain authentication and provide account functionality.
+
+These mechanisms are distinct from advertising trackers. Their precise configuration depends on the deployed implementation.
+
+**[CONFIRM BEFORE PUBLICATION: Verify whether authentication uses cookies, their security attributes, whether any other cookies or browser storage are used, and whether additional consent or notice is required.]**
+
+## 10. Children's Privacy
+
+The Website is intended for people using the club's website and activities in accordance with applicable eligibility requirements. We do not knowingly seek to collect personal information from children in circumstances where collection is not permitted.
+
+**[CONFIRM BEFORE PUBLICATION: Decide whether the Website is restricted to adults, whether minors can register, and what age-appropriate notices, permissions, or safeguards are required.]**
+
+## 11. Third-Party Services and Links
+
+The Website may link to third-party websites or use third-party services. Those services operate under their own terms and privacy policies.
+
+We are not responsible for the privacy practices of external websites that we do not operate. Review their policies before providing them with personal information.
+
+## 12. Changes to This Policy
+
+We may update this Privacy Policy when Website features, data practices, or applicable requirements change.
+
+The revised policy will be published on this page with an updated revision date. Where required, we will provide additional notice or obtain consent.
+
+## 13. Contact Us
+
+For questions, access requests, correction requests, deletion requests, or other privacy-related concerns, contact:
+
+**BMSIT Coding Club**  
+Email: codingclub@bmsit.in  
+Website: https://bmsitcodingclub.space
+
+This Privacy Policy is intended to explain the Website's data practices. Its publication does not, by itself, establish compliance with every applicable legal or regulatory requirement.

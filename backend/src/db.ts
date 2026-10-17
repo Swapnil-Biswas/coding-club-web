@@ -473,3 +473,8 @@ if (!initialScore || initialScore.count === 0) {
   db.prepare(`INSERT INTO arcade_global_scores (score, player_name) VALUES (?, ?)`).run(1337, 'BMSIT_ROOT');
 }
 
+// ─── Recruitment module schema ────────────────────────────────────────────────
+// Imported here so that db.ts remains the single boot-time schema file.
+import { initRecruitmentSchema } from './recruitment/schema.js';
+initRecruitmentSchema();
+

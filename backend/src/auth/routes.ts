@@ -5,6 +5,7 @@ import {
   signup,
   verifyEmail,
   login,
+  googleLogin,
   destroySession,
   publicUser,
   resendVerificationCode,
@@ -18,6 +19,20 @@ function setSessionCookie(res: Response, sessionId: string, expiresAt: string): 
     expires: new Date(expiresAt),
   });
 }
+
+// Google OAuth — frontend sends the credential (ID token) from Google Identity Services
+authRouter.post(
+  '/google',
+  asyncHandler(async (req, res) => {
+    const { credential } = req.body || {};
+    if (!credential || typeof credential !== 'string') {
+      throw new HttpError(400, 'credential (Google ID token) is required');
+    }
+    const { sessionId, expiresAt, user } = await googleLogin(credential);
+    setSessionCookie(res, sessionId, expiresAt);
+    res.json({ user });
+  }),
+);
 
 authRouter.post(
   '/signup',
@@ -71,9 +86,7 @@ authRouter.post(
   }),
 );
 
-// Useful for the frontend to figure out who's logged in on initial load.
-// Returns 200 with {user: null} when not logged in, so the frontend doesn't
-// have to special-case the response shape.
+// Returns 200 with {user: null} when not logged in.
 authRouter.get('/me', (req, res) => {
   res.json({ user: req.user ? publicUser(req.user) : null });
 });

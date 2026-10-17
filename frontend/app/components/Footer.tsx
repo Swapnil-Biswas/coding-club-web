@@ -72,6 +72,8 @@ export default function Footer() {
             <li><Link href="/about">About</Link></li>
             <li><Link href="/verify">Verify certificate</Link></li>
             <li><Link href="/join">Join us</Link></li>
+            <li><Link href="/privacy">Privacy Policy</Link></li>
+            <li><Link href="/terms">Terms &amp; Conditions</Link></li>
           </ul>
         </div>
 
@@ -191,6 +193,11 @@ export default function Footer() {
         <p className="footer-copy">
           © {year} Coding Club BMSIT · Made by students, for students.
         </p>
+        <div className="footer-legal-links">
+          <Link href="/privacy">Privacy Policy</Link>
+          <span className="footer-legal-dot" />
+          <Link href="/terms">Terms &amp; Conditions</Link>
+        </div>
         <p className="footer-build">
           <span>BUILD</span>
           <span className="footer-build-dot" />

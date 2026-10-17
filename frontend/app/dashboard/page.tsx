@@ -24,6 +24,7 @@ import type {
 } from "@/app/lib/types";
 import { formatDate, formatDateTime, certTypeLabel } from "@/app/lib/format";
 import ImageSourceInput from "@/app/components/app/ImageSourceInput";
+import RecruitmentAdminPanel from "@/app/components/app/RecruitmentAdminPanel";
 import {
   PageHeader,
   Spinner,
@@ -68,6 +69,7 @@ export default function DashboardPage() {
 
 const TABS = [
   { id: "overview",  label: "Overview" },
+  { id: "recruitment", label: "Recruitment" },
   { id: "events",    label: "Events" },
   { id: "teams",     label: "Teams" },
   { id: "certificates", label: "Certificates" },
@@ -138,6 +140,7 @@ function DashboardInner() {
         />
         <Tabs active={tab} onChange={setTab} tabs={visibleTabs} />
         {tab === "overview" && <OverviewTab />}
+        {tab === "recruitment" && <RecruitmentAdminPanel />}
         {tab === "events" && <EventsTab />}
         {tab === "teams" && <TeamsTab />}
         {tab === "certificates" && <CertificatesTab />}

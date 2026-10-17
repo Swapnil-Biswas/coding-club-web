@@ -1,10 +1,13 @@
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { getOne, runQuery } from '../db.js';
 import { HttpError } from '../lib/errors.js';
 import { publicImageReference } from '../lib/imageUpload.js';
 import type { PublicProfile, PublicUser, Role, SessionUser, UserRow } from '../lib/types.js';
 import { issueVerificationCode, consumeVerificationCode } from './verification.js';
+
+const googleClient = new OAuth2Client();
 
 const BCRYPT_ROUNDS = 12;
 const SESSION_TTL_DAYS = 30;
@@ -176,6 +179,56 @@ export function createSession(user: UserRow): LoginResult {
 export function destroySession(sessionId: string | undefined): void {
   if (!sessionId) return;
   runQuery(`DELETE FROM sessions WHERE id = ?`, [sessionId]);
+}
+
+// ─── Google OAuth sign-in / sign-up ───────────────────────────────────────────
+
+export async function googleLogin(idToken: string): Promise<LoginResult> {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  if (!clientId) throw new HttpError(501, 'Google sign-in is not configured on this server');
+
+  // Verify the ID token with Google's public keys
+  let payload: { email?: string; name?: string; picture?: string; email_verified?: boolean } | undefined;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: clientId,
+    });
+    payload = ticket.getPayload() as typeof payload;
+  } catch {
+    throw new HttpError(401, 'Invalid Google ID token');
+  }
+
+  if (!payload?.email) throw new HttpError(401, 'Google account has no email');
+  if (!payload.email_verified) throw new HttpError(401, 'Google account email is not verified');
+
+  const normalizedEmail = payload.email.toLowerCase().trim();
+
+  // Domain check — same rule as regular signup
+  if (!emailDomainIsAllowed(normalizedEmail)) {
+    throw new HttpError(400, `Only ${configuredDomains()} accounts can sign in here`);
+  }
+
+  // Upsert: find existing user or create one
+  let user = findUserByEmail(normalizedEmail);
+  if (!user) {
+    const defaultRole: Role = normalizedEmail.endsWith('@bmsit.in') ? 'member' : 'public';
+    const displayName = (payload.name ?? '').trim() || normalizedEmail.split('@')[0];
+    // Insert with no password_hash (empty string — can never be authenticated via password)
+    runQuery(
+      `INSERT INTO users (name, email, password_hash, role, email_verified)
+       VALUES (?, ?, ?, ?, 1)`,
+      [displayName, normalizedEmail, '', defaultRole],
+    );
+    user = findUserByEmail(normalizedEmail)!;
+  } else if (!user.email_verified) {
+    // Existing unverified user — Google confirms the email, so mark it verified
+    runQuery(`UPDATE users SET email_verified = 1 WHERE id = ?`, [user.id]);
+    user = findUserByEmail(normalizedEmail)!;
+  }
+
+  if (!user) throw new HttpError(500, 'Failed to find or create user');
+  return createSession(user);
 }
 
 export function userFromSessionId(sessionId: string | undefined): UserRow | null {

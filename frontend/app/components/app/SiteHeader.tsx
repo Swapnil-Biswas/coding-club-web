@@ -4,25 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/app/lib/auth";
+import { useRecruitment } from "@/app/lib/recruitment";
 import { assetUrl } from "@/app/lib/api";
 import { isCorePlus, isCoreHeadPlus, isFaculty, displayTitle } from "@/app/lib/roles";
 import NotificationsBell from "./Notifications";
 import { Avatar } from "./ui";
 
-const publicLinks = [
-  { label: "EVENTS",   href: "/events" },
-  { label: "BUILDERS", href: "/builders" },
-  { label: "TEAM",     href: "/teams" },
-  { label: "MENTORS",  href: "/mentors" },
-  { label: "GALLERY",  href: "/gallery" },
-  { label: "PARTNERS", href: "/partners" },
-  { label: "ABOUT",    href: "/about" },
-];
-
 export default function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { state: recruitmentState } = useRecruitment();
+  const recruitmentOpen = Boolean(recruitmentState?.is_open);
+
+  const navLinks = [
+    { label: "EVENTS",   href: "/events" },
+    { label: "BUILDERS", href: "/builders" },
+    { label: "TEAM",     href: "/teams" },
+    { label: "MENTORS",  href: "/mentors" },
+    { label: "GALLERY",  href: "/gallery" },
+    { label: "PARTNERS", href: "/partners" },
+    { label: "ABOUT",    href: "/about" },
+    ...(recruitmentOpen ? [{ label: "RECRUITMENTS", href: "/recruitment" }] : []),
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -61,7 +65,7 @@ export default function SiteHeader() {
 
       {/* Col 2: Nav links — naturally centered by the grid */}
       <nav className="header-nav" id="header-nav">
-        {publicLinks.map((l) => (
+        {navLinks.map((l) => (
           <Link key={l.label} href={l.href} className="header-nav-link">
             {l.label}
           </Link>
@@ -240,10 +244,21 @@ function MenuIcon({ path, extra, third }: { path: string; extra?: React.ReactNod
 
 function MobileMenu({ onClose }: { onClose: () => void }) {
   const { user, openAuth, logout } = useAuth();
+  const { state: recruitmentState } = useRecruitment();
+  const recruitmentOpen = Boolean(recruitmentState?.is_open);
   const router = useRouter();
   return (
     <nav id="mobile-menu" className="mobile-menu" aria-label="Mobile navigation">
-      {publicLinks.map((l) => (
+      {[
+        { label: "EVENTS",   href: "/events" },
+        { label: "BUILDERS", href: "/builders" },
+        { label: "TEAM",     href: "/teams" },
+        { label: "MENTORS",  href: "/mentors" },
+        { label: "GALLERY",  href: "/gallery" },
+        { label: "PARTNERS", href: "/partners" },
+        { label: "ABOUT",    href: "/about" },
+        ...(recruitmentOpen ? [{ label: "RECRUITMENTS", href: "/recruitment" }] : []),
+      ].map((l) => (
         <Link key={l.label} href={l.href} className="header-nav-link mobile-menu-link" onClick={onClose}>
           {l.label}
         </Link>

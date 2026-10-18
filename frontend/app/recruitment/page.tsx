@@ -859,20 +859,154 @@ function SuccessScreen({ reference }: { reference: string }) {
 
 // ─── Closed screen ────────────────────────────────────────────────────────────
 
-function ClosedScreen() {
+function ClosedScreen({
+  onRefresh,
+}: {
+  onRefresh?: () => Promise<void>;
+}) {
+  const [checking, setChecking] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  const handleManualCheck = async () => {
+    if (!onRefresh || checking) return;
+    setChecking(true);
+    setFeedback("");
+    try {
+      await onRefresh();
+      setFeedback("Recruitment is still closed · live monitoring continues");
+      setTimeout(() => setFeedback(""), 4000);
+    } catch {
+      setFeedback("Could not reach server");
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    // Auto-poll recruitment state every 20 seconds so that the page
+    // automatically becomes active the moment Core opens recruitment!
+    if (!onRefresh) return;
+    const interval = setInterval(() => {
+      onRefresh();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [onRefresh]);
+
   return (
     <div className="rec-closed">
+      <div className="rec-closed__status-badge">
+        <span className="rec-closed__pulse-dot" />
+        <span>Applications Currently Closed</span>
+      </div>
+
       <div className="rec-closed__icon" aria-hidden="true">
         <LockIcon size={28} />
       </div>
-      <h1 className="rec-closed__title">Recruitment is Currently Closed</h1>
+
+      <h1 className="rec-closed__title">Recruitment is Not Open Yet</h1>
+
       <p className="rec-closed__desc">
-        Applications for this cycle are not currently being accepted.
-        Follow our social media channels to be notified when recruitment opens.
+        Applications for the BMSIT Coding Club are currently closed. This page is live and will
+        automatically become active with the application form the moment the Core team opens the recruitment portal.
       </p>
-      <Link href="/" className="btn-secondary">
-        Back to Home
-      </Link>
+
+      {/* Real-time live status indicator with manual check option */}
+      <div className="rec-closed__live-bar">
+        <span>● Live monitor active — auto-refreshing in background</span>
+        <button
+          type="button"
+          className="rec-closed__check-btn"
+          onClick={handleManualCheck}
+          disabled={checking}
+          aria-label="Check if recruitment has opened"
+        >
+          {checking ? "Checking…" : "Check Now ↻"}
+        </button>
+      </div>
+      {feedback && (
+        <p style={{ fontSize: 12, color: "var(--grey-500)", marginTop: -24, marginBottom: 24, fontFamily: "var(--font-mono)" }}>
+          {feedback}
+        </p>
+      )}
+
+      {/* Prepare ahead / Teams preview */}
+      <div className="rec-closed__teams-section">
+        <div className="rec-closed__teams-header">
+          <h2 className="rec-closed__teams-title">Explore the Teams You Can Join</h2>
+          <p className="rec-closed__teams-subtitle">
+            When recruitment opens, every applicant can apply for up to two teams. Explore the divisions below to prepare your skills and interests:
+          </p>
+        </div>
+
+        <div className="rec-closed__teams-grid">
+          {TEAMS.map((t) => (
+            <div key={t.id} className="rec-closed__team-card">
+              <div className="rec-closed__team-head">
+                <div className="rec-closed__team-icon" aria-hidden="true">
+                  <TeamIcon team={t.id} size={18} />
+                </div>
+                <span className="rec-closed__team-name">{t.label}</span>
+              </div>
+              <p className="rec-closed__team-desc">{t.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Social channels where announcements happen */}
+      <div className="rec-closed__socials-section">
+        <span className="rec-closed__socials-label">// Announcements &amp; Updates</span>
+        <p style={{ fontSize: 13, color: "var(--grey-600)", marginBottom: 14 }}>
+          Dates, cycle openings, and interview shortlists are announced on our official social handles:
+        </p>
+        <div className="rec-closed__socials-links">
+          <a
+            href="https://www.instagram.com/codingclub_bmsit?igsh=bGlxdmEyOXpmb3Zo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rec-closed__social-chip"
+          >
+            Instagram ↗
+          </a>
+          <a
+            href="https://www.linkedin.com/company/coding-club-bmsit/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rec-closed__social-chip"
+          >
+            LinkedIn ↗
+          </a>
+          <a
+            href="https://github.com/Codingclub-BMSIT"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rec-closed__social-chip"
+          >
+            GitHub ↗
+          </a>
+          <a
+            href="https://x.com/_coding_club"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rec-closed__social-chip"
+          >
+            X / Twitter ↗
+          </a>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="rec-closed__actions">
+        <Link href="/" className="btn-secondary">
+          ← Back to Home
+        </Link>
+        <Link href="/about" className="btn-secondary">
+          About the Club
+        </Link>
+        <Link href="/events" className="btn-primary">
+          Explore Past Events
+        </Link>
+      </div>
     </div>
   );
 }
@@ -880,7 +1014,7 @@ function ClosedScreen() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function RecruitmentPage() {
-  const { state, ready } = useRecruitment();
+  const { state, ready, refresh } = useRecruitment();
   const [step, setStep] = useState(1); // 1=info, 2=role+shared, 3=team, 4=review
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1127,7 +1261,7 @@ export default function RecruitmentPage() {
   if (!state?.is_open) {
     return (
       <main className="rec-page">
-        <ClosedScreen />
+        <ClosedScreen onRefresh={refresh} />
       </main>
     );
   }

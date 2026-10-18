@@ -42,6 +42,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      { source: "/recruitments", destination: "/recruitment", permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: "/api/backend/:path*", destination: `${BACKEND}/:path*` },

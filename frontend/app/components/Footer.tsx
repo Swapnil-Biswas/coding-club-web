@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import GlyphDivider from "./GlyphDivider";
 
 export default function Footer() {
-  const year = new Date().getFullYear();
+  const [year, setYear] = useState<number | null>(null);
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+
+  // Resolve the year on the client only to avoid SSR/client hydration mismatch
+  // (Date.now() on the server can differ from the client's local date)
+  useEffect(() => {
+    setYear(new Date().getFullYear());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,8 +196,8 @@ export default function Footer() {
       <GlyphDivider variant="compact" />
 
       <div className="footer-bottom">
-        <p className="footer-copy">
-          © {year} Coding Club BMSIT · Made by students, for students.
+        <p className="footer-copy" suppressHydrationWarning>
+          © {year ?? ""} Coding Club BMSIT · Made by students, for students.
         </p>
         <div className="footer-legal-links">
           <Link href="/privacy">Privacy Policy</Link>

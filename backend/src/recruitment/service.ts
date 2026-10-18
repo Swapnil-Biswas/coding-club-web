@@ -215,32 +215,40 @@ export function submitApplication(input: SubmitApplicationInput): { application_
   const teamResult = validateTeamResponses(common.selected_team, teamResponses);
   if (!teamResult.ok) throw new HttpError(400, teamResult.error, { field: teamResult.field });
 
-  // 4. Idempotency key (client may send one; if not, generate from email+cycle)
+  // 4. Look up existing active applications for this applicant (by USN OR college_email)
+  const existingApps = getAll<{ id: string; selected_team: string; idempotency_key: string | null }>(
+    `SELECT id, selected_team, idempotency_key FROM recruitment_applications
+     WHERE cycle_id = ? AND (college_email = ? OR usn = ?) AND status != 'withdrawn'`,
+    [cycle.id, common.college_email, common.usn.toUpperCase()],
+  );
+
+  // 5. Enforce: max 2 applications per cycle, both must be different teams.
+  if (existingApps.length >= 2) {
+    throw new HttpError(409, 'You have already submitted applications for two teams in this cycle. No further applications are allowed.');
+  }
+  const alreadyAppliedToSameTeam = existingApps.some((a) => a.selected_team === common.selected_team);
+  if (alreadyAppliedToSameTeam) {
+    throw new HttpError(409, `You have already submitted an application for the ${common.selected_team} team. Please choose a different team.`);
+  }
+
+  // 6. Idempotency key per applicant per cycle per team
   const idempotencyKey = typeof body.idempotency_key === 'string' && body.idempotency_key.trim()
     ? body.idempotency_key.trim().slice(0, 128)
-    : `${cycle.id}:${common.college_email}`;
+    : `${cycle.id}:${common.college_email}:${common.selected_team}`;
 
-  // 5. Duplicate check (one active submission per cycle per college email)
-  const existing = getOne<{ id: string; idempotency_key: string | null }>(
-    `SELECT id, idempotency_key FROM recruitment_applications
-     WHERE cycle_id = ? AND college_email = ? AND status != 'withdrawn'`,
-    [cycle.id, common.college_email],
-  );
-  if (existing) {
-    // If same idempotency key, return the existing ID (idempotent retry)
-    if (existing.idempotency_key === idempotencyKey) {
-      return { application_id: existing.id, reference: existing.id.slice(0, 8).toUpperCase() };
-    }
-    throw new HttpError(409, 'An application from this college email already exists for this cycle.');
+  // Check if this exact key was already submitted (idempotent retry)
+  const exactDupe = existingApps.find((a) => a.idempotency_key === idempotencyKey);
+  if (exactDupe) {
+    return { application_id: exactDupe.id, reference: exactDupe.id.slice(0, 8).toUpperCase() };
   }
 
   const applicationId = newUuid();
   const ts = now();
 
-  // 6. Sanitize team responses against formula injection
+  // 7. Sanitize team responses against formula injection
   const sanitizedResponses = sanitizeResponses(teamResponses);
 
-  // 7. Commit application + outbox in one transaction
+  // 8. Commit application + outbox in one transaction
   const tx = db.transaction(() => {
     runQuery(`
       INSERT INTO recruitment_applications
@@ -251,7 +259,7 @@ export function submitApplication(input: SubmitApplicationInput): { application_
     `, [
       applicationId, cycle.id, idempotencyKey, 'submitted',
       common.email, common.college_email, common.full_name,
-      common.phone, common.usn, common.year_of_study, common.branch,
+      common.phone, common.usn.toUpperCase(), common.year_of_study, common.branch,
       common.selected_team, common.clubs_orgs, common.why_join,
       common.weekly_hours, JSON.stringify(sanitizedResponses),
       '1.0', ts, ts,
@@ -292,6 +300,53 @@ export function submitApplication(input: SubmitApplicationInput): { application_
     application_id: applicationId,
     reference: applicationId.slice(0, 8).toUpperCase(),
   };
+}
+
+// ─── Public: get my applications (by email/college_email) ─────────────────────
+
+export interface MyApplicationSummary {
+  id: string;
+  status: string;
+  selected_team: string;
+  submitted_at: string;
+  full_name: string;
+  college_email: string;
+  usn: string;
+  reference: string;
+}
+
+export function getMyApplications(
+  cycleId: string,
+  lookupEmail: string,
+  lookupUsn?: string,
+): MyApplicationSummary[] {
+  const email = lookupEmail.trim().toLowerCase();
+  const usn = (lookupUsn || '').trim().toUpperCase();
+
+  let rows: Array<{ id: string; status: string; selected_team: string; submitted_at: string; full_name: string; college_email: string; usn: string }>;
+
+  if (usn) {
+    rows = getAll(
+      `SELECT id, status, selected_team, submitted_at, full_name, college_email, usn
+       FROM recruitment_applications
+       WHERE cycle_id = ? AND (college_email = ? OR email = ? OR usn = ?) AND status != 'withdrawn'
+       ORDER BY submitted_at ASC`,
+      [cycleId, email, email, usn],
+    );
+  } else {
+    rows = getAll(
+      `SELECT id, status, selected_team, submitted_at, full_name, college_email, usn
+       FROM recruitment_applications
+       WHERE cycle_id = ? AND (college_email = ? OR email = ?) AND status != 'withdrawn'
+       ORDER BY submitted_at ASC`,
+      [cycleId, email, email],
+    );
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    reference: r.id.slice(0, 8).toUpperCase(),
+  }));
 }
 
 // Extract team-specific fields from a flat body (frontend sends nested object)

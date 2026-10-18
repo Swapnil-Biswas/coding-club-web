@@ -59,11 +59,10 @@ export function initRecruitmentSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_rec_apps_year    ON recruitment_applications(year_of_study);
     CREATE INDEX IF NOT EXISTS idx_rec_apps_branch  ON recruitment_applications(branch);
     CREATE INDEX IF NOT EXISTS idx_rec_apps_email   ON recruitment_applications(college_email);
+    CREATE INDEX IF NOT EXISTS idx_rec_apps_usn     ON recruitment_applications(usn);
     CREATE INDEX IF NOT EXISTS idx_rec_apps_submitted ON recruitment_applications(submitted_at);
-    -- Prevent duplicate submissions per cycle per college email
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_rec_apps_cycle_email
-      ON recruitment_applications(cycle_id, college_email)
-      WHERE status != 'withdrawn';
+    -- NOTE: uniqueness / 2-team cap is enforced at the service layer, not by a DB constraint,
+    -- because applicants may submit up to 2 *different* teams per cycle.
 
     -- ─── Application Files ────────────────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS recruitment_application_files (

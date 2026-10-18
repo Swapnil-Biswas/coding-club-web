@@ -15,6 +15,7 @@ import {
   closeRecruitment,
   getAdminCycleDetail,
   submitApplication,
+  getMyApplications,
   listApplications,
   getApplicationDetail,
   updateApplicationStatus,
@@ -116,6 +117,36 @@ recruitmentRouter.post(
 
     const result = submitApplication({ body, fileKey, fileId, fileMeta });
     res.status(201).json({ success: true, ...result });
+  }),
+);
+
+// ─── Public: look up my applications by email (+ optional USN) ───────────────
+// This endpoint is intentionally unauthenticated so that users who applied
+// without an account can also check their status by providing their email.
+// When the caller is logged in we ALSO accept their session email automatically.
+
+recruitmentRouter.get(
+  '/my-applications',
+  asyncHandler(async (req, res) => {
+    const state = getRecruitmentState();
+    if (!state) {
+      res.json({ applications: [] });
+      return;
+    }
+
+    // Prefer logged-in user's email; otherwise fall back to ?email= query param
+    const sessionEmail = (req as { user?: { email?: string } }).user?.email ?? '';
+    const queryEmail = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    const lookupEmail = sessionEmail || queryEmail;
+
+    if (!lookupEmail) {
+      res.status(400).json({ error: 'email is required' });
+      return;
+    }
+
+    const queryUsn = typeof req.query.usn === 'string' ? req.query.usn.trim() : undefined;
+    const apps = getMyApplications(state.cycle_id, lookupEmail, queryUsn);
+    res.json({ applications: apps });
   }),
 );
 

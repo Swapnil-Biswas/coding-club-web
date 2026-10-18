@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, createContext, useContext } from "react";
 import Link from "next/link";
 import { useRecruitment } from "@/app/lib/recruitment";
+import { useAuth } from "@/app/lib/auth";
 import { API_BASE } from "@/app/lib/api";
 import {
   TeamIcon,
@@ -383,14 +384,18 @@ function Step1({ data, onChange }: { data: CommonData; onChange: (d: Partial<Com
 
 // ─── Step 2: Role selection + shared questions ────────────────────────────────
 
-function Step2({ data, onChange }: { data: CommonData; onChange: (d: Partial<CommonData>) => void }) {
+function Step2({ data, onChange, disabledTeams = [] }: {
+  data: CommonData;
+  onChange: (d: Partial<CommonData>) => void;
+  disabledTeams?: Team[];
+}) {
   return (
     <div className="rec-step">
       <div className="rec-step-intro">
         <h2 className="rec-step-title">Role Selection</h2>
         <p className="rec-step-desc">
-          Choose the team you want to apply for. Read each description carefully —
-          you can apply for exactly one team per cycle.
+          Choose the team you want to apply for. Read each description carefully.
+          {disabledTeams.length > 0 && " Teams you've already applied to are disabled."}
         </p>
       </div>
 
@@ -400,16 +405,21 @@ function Step2({ data, onChange }: { data: CommonData; onChange: (d: Partial<Com
             <button
               key={t.id}
               type="button"
-              className={`rec-team-card ${data.selected_team === t.id ? "rec-team-card--active" : ""}`}
-              onClick={() => onChange({ selected_team: t.id })}
+              className={`rec-team-card ${data.selected_team === t.id ? "rec-team-card--active" : ""} ${disabledTeams.includes(t.id) ? "rec-team-card--disabled" : ""}`}
+              onClick={() => !disabledTeams.includes(t.id) && onChange({ selected_team: t.id })}
               aria-pressed={data.selected_team === t.id}
+              aria-disabled={disabledTeams.includes(t.id)}
               id={`team-${t.id}`}
+              title={disabledTeams.includes(t.id) ? "You already applied to this team" : undefined}
             >
               <div className="rec-team-icon-box" aria-hidden="true">
                 <TeamIcon team={t.id} size={22} />
               </div>
               <strong className="rec-team-label">{t.label}</strong>
               <p className="rec-team-desc">{t.desc}</p>
+              {disabledTeams.includes(t.id) && (
+                <span className="rec-team-applied-tag">Already applied</span>
+              )}
             </button>
           ))}
         </div>
@@ -828,9 +838,207 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ─── Application status helpers ───────────────────────────────────────────────
+
+interface AppSummary {
+  id: string;
+  status: string;
+  selected_team: string;
+  submitted_at: string;
+  full_name: string;
+  college_email: string;
+  usn: string;
+  reference: string;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  submitted: "Submitted",
+  under_review: "Under Review",
+  shortlisted: "Shortlisted 🎉",
+  interview_scheduled: "Interview Scheduled",
+  selected: "Selected ⭐",
+  rejected: "Not Selected",
+  waitlisted: "Waitlisted",
+  withdrawn: "Withdrawn",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  submitted: "#6366f1",
+  under_review: "#f59e0b",
+  shortlisted: "#10b981",
+  interview_scheduled: "#3b82f6",
+  selected: "#22c55e",
+  rejected: "#ef4444",
+  waitlisted: "#8b5cf6",
+  withdrawn: "#9ca3af",
+};
+
+function ApplicationStatusCard({ app }: { app: AppSummary }) {
+  const teamObj = TEAMS.find((t) => t.id === app.selected_team);
+  const statusLabel = STATUS_LABEL[app.status] ?? app.status;
+  const statusColor = STATUS_COLOR[app.status] ?? "#6b7280";
+  return (
+    <div className="rec-status-card">
+      <div className="rec-status-card__head">
+        <div className="rec-status-card__team-icon" aria-hidden="true">
+          <TeamIcon team={app.selected_team as Team} size={20} />
+        </div>
+        <div>
+          <div className="rec-status-card__team-name">{teamObj?.label ?? app.selected_team}</div>
+          <div className="rec-status-card__ref">Ref: {app.reference}</div>
+        </div>
+        <div
+          className="rec-status-card__badge"
+          style={{ background: `${statusColor}20`, color: statusColor, border: `1px solid ${statusColor}40` }}
+        >
+          {statusLabel}
+        </div>
+      </div>
+      <div className="rec-status-card__meta">
+        Submitted {new Date(app.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+      </div>
+    </div>
+  );
+}
+
+// ─── My Applications View ─────────────────────────────────────────────────────
+
+function MyApplicationsView({
+  apps,
+  onApplySecond,
+  isLoggedIn,
+}: {
+  apps: AppSummary[];
+  onApplySecond: () => void;
+  isLoggedIn: boolean;
+}) {
+  const canApplyMore = apps.length < 2;
+  return (
+    <div className="rec-my-apps">
+      <div className="rec-my-apps__header">
+        <div className="rec-my-apps__icon" aria-hidden="true">
+          <CheckCircleIcon size={28} />
+        </div>
+        <h2 className="rec-my-apps__title">Your Application{apps.length > 1 ? "s" : ""}</h2>
+        <p className="rec-my-apps__subtitle">
+          {apps.length === 1
+            ? "You've submitted one application. You can apply to one more team."
+            : "You've applied to two teams — the maximum for this cycle."}
+        </p>
+      </div>
+
+      <div className="rec-my-apps__list">
+        {apps.map((app) => (
+          <ApplicationStatusCard key={app.id} app={app} />
+        ))}
+      </div>
+
+      {!isLoggedIn && (
+        <div className="rec-my-apps__login-hint">
+          <LockIcon size={14} />
+          <span>
+            <strong>Sign in</strong> to your account to automatically track your application status anytime.
+          </span>
+        </div>
+      )}
+
+      {canApplyMore && (
+        <div className="rec-my-apps__second-cta">
+          <p>You can still apply to one more team in this cycle.</p>
+          <button type="button" className="btn-primary" onClick={onApplySecond} id="rec-apply-second-btn">
+            Apply for a second team →
+          </button>
+        </div>
+      )}
+
+      <div className="rec-my-apps__footer">
+        <Link href="/" className="btn-secondary">← Back to home</Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Guest status lookup ──────────────────────────────────────────────────────
+
+function GuestStatusLookup({ onFound }: { onFound: (apps: AppSummary[]) => void }) {
+  const [email, setEmail] = useState("");
+  const [usn, setUsn] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLookup = async () => {
+    if (!email.trim()) { setError("Enter your email address."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ email: email.trim() });
+      if (usn.trim()) params.set("usn", usn.trim());
+      const res = await fetch(`${API_BASE}/recruitment/my-applications?${params}`, { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Lookup failed");
+      if (data.applications.length === 0) {
+        setError("No applications found for this email / USN.");
+      } else {
+        onFound(data.applications as AppSummary[]);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rec-guest-lookup">
+      <div className="rec-guest-lookup__icon" aria-hidden="true">
+        <ShieldIcon size={24} />
+      </div>
+      <h3 className="rec-guest-lookup__title">Check your application status</h3>
+      <p className="rec-guest-lookup__desc">
+        Applied without logging in? Enter the email you used to check your status.
+      </p>
+      <div className="rec-guest-lookup__fields">
+        <input
+          type="email"
+          className="rec-input"
+          placeholder="Email you applied with"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+          aria-label="Email address"
+        />
+        <input
+          type="text"
+          className="rec-input"
+          placeholder="USN (optional, improves accuracy)"
+          value={usn}
+          onChange={(e) => setUsn(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+          aria-label="USN"
+        />
+      </div>
+      {error && <p className="rec-guest-lookup__error">{error}</p>}
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={handleLookup}
+        disabled={loading}
+        id="rec-guest-lookup-btn"
+      >
+        {loading ? "Checking…" : "Check Status"}
+      </button>
+    </div>
+  );
+}
+
 // ─── Success screen ───────────────────────────────────────────────────────────
 
-function SuccessScreen({ reference }: { reference: string }) {
+function SuccessScreen({ reference, onApplySecond, canApplyMore, isLoggedIn }: {
+  reference: string;
+  onApplySecond?: () => void;
+  canApplyMore?: boolean;
+  isLoggedIn?: boolean;
+}) {
   return (
     <div className="rec-success">
       <div className="rec-success__icon" aria-hidden="true">
@@ -847,9 +1055,23 @@ function SuccessScreen({ reference }: { reference: string }) {
           {reference}
         </strong>
         <p className="rec-success__ref-hint">
-          Save this reference. We'll announce results on our social media after evaluations.
+          Save this reference. We&apos;ll announce results on our social media after evaluations.
         </p>
       </div>
+      {canApplyMore && onApplySecond && (
+        <div className="rec-success__second-cta">
+          <p>You can also apply for one more team in this cycle.</p>
+          <button type="button" className="btn-primary" onClick={onApplySecond} id="rec-success-apply-second-btn">
+            Apply for a second team →
+          </button>
+        </div>
+      )}
+      {!isLoggedIn && (
+        <p className="rec-success__login-hint">
+          <LockIcon size={12} />{" "}
+          <strong>Sign in</strong> to automatically track your application status from your dashboard.
+        </p>
+      )}
       <Link href="/" className="btn-primary rec-success__home">
         Back to Home
       </Link>
@@ -1015,6 +1237,8 @@ function ClosedScreen({
 
 export default function RecruitmentPage() {
   const { state, ready, refresh } = useRecruitment();
+  const { user } = useAuth();
+
   const [step, setStep] = useState(1); // 1=info, 2=role+shared, 3=team, 4=review
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1022,6 +1246,14 @@ export default function RecruitmentPage() {
   const topRef = useRef<HTMLDivElement>(null);
   const [pasteToast, setPasteToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: "" });
   const pasteToastTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // My-applications state
+  const [myApps, setMyApps] = useState<AppSummary[] | null>(null);
+  const [appsLoading, setAppsLoading] = useState(false);
+  // Whether the user clicked "Apply for a second team" from the status view
+  const [applyingSecond, setApplyingSecond] = useState(false);
+  // Already-applied team IDs (to disable in step 2)
+  const alreadyAppliedTeams: Team[] = (myApps ?? []).map((a) => a.selected_team as Team);
 
   const handlePasteBlocked = useCallback((_fieldName?: string) => {
     setPasteToast({
@@ -1069,6 +1301,18 @@ export default function RecruitmentPage() {
   useEffect(() => {
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [step]);
+
+  // Auto-fetch applications for logged-in users when recruitment is open
+  useEffect(() => {
+    if (!state?.is_open || !user) return;
+    setAppsLoading(true);
+    const params = new URLSearchParams({ email: user.email });
+    fetch(`${API_BASE}/recruitment/my-applications?${params}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => setMyApps(d.applications ?? []))
+      .catch(() => setMyApps([]))
+      .finally(() => setAppsLoading(false));
+  }, [state?.is_open, user]);
 
   const updateCommon = useCallback((d: Partial<CommonData>) => setCommon((p) => ({ ...p, ...d })), []);
 
@@ -1266,11 +1510,53 @@ export default function RecruitmentPage() {
     );
   }
 
-  // Success
-  if (successRef) {
+  // Show spinner while loading apps for logged-in user
+  if (user && appsLoading) {
     return (
       <main className="rec-page">
-        <SuccessScreen reference={successRef} />
+        <div className="rec-loading">
+          <div className="rec-loading__spinner" aria-label="Loading your applications…" />
+        </div>
+      </main>
+    );
+  }
+
+  // Any user (logged-in OR guest who found apps via lookup) with existing applications
+  if (myApps && myApps.length > 0 && !applyingSecond && !successRef) {
+    return (
+      <main className="rec-page">
+        <MyApplicationsView
+          apps={myApps}
+          onApplySecond={() => setApplyingSecond(true)}
+          isLoggedIn={!!user}
+        />
+      </main>
+    );
+  }
+
+  // Success
+  if (successRef) {
+    // After successful submission, refresh apps list
+    const canApplyMore = (myApps?.length ?? 0) + 1 < 2;
+    return (
+      <main className="rec-page">
+        <SuccessScreen
+          reference={successRef}
+          canApplyMore={canApplyMore}
+          isLoggedIn={!!user}
+          onApplySecond={() => {
+            setSuccessRef(null);
+            setApplyingSecond(true);
+            // Refresh apps list from server
+            if (user) {
+              const params = new URLSearchParams({ email: user.email });
+              fetch(`${API_BASE}/recruitment/my-applications?${params}`, { credentials: "include" })
+                .then((r) => r.json())
+                .then((d) => setMyApps(d.applications ?? []))
+                .catch(() => {});
+            }
+          }}
+        />
       </main>
     );
   }
@@ -1288,6 +1574,15 @@ export default function RecruitmentPage() {
           or organising events are invited to join.
         </p>
       </section>
+
+      {/* Guest status lookup strip (only for non-logged-in users, before/during form) */}
+      {!user && (
+        <div className="rec-guest-strip">
+          <GuestStatusLookup
+            onFound={(apps) => setMyApps(apps)}
+          />
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="rec-progress" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={totalSteps}
@@ -1331,7 +1626,7 @@ export default function RecruitmentPage() {
           )}
 
         {step === 1 && <Step1 data={common} onChange={updateCommon} />}
-        {step === 2 && <Step2 data={common} onChange={updateCommon} />}
+        {step === 2 && <Step2 data={common} onChange={updateCommon} disabledTeams={alreadyAppliedTeams} />}
         {step === 3 && common.selected_team === "design" && (
           <DesignBranch data={designData} onChange={(d) => setDesignData((p) => ({ ...p, ...d }))} />
         )}

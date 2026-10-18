@@ -324,9 +324,6 @@ export default function RecruitmentAdminPanel() {
                 {!cycle.cycle.is_open && cycle.cycle.closed_by_name && (
                   <span>Closed by <strong>{cycle.cycle.closed_by_name}</strong> on {formatDate(cycle.cycle.closed_at)}</span>
                 )}
-                {cycle.cycle.announcement_version && (
-                  <span style={{ marginLeft: 12 }}>· Announcement v{cycle.cycle.announcement_version}</span>
-                )}
               </div>
             </div>
 

@@ -873,10 +873,10 @@ function ClosedScreen({
     setFeedback("");
     try {
       await onRefresh();
-      setFeedback("Recruitment is still closed · live monitoring continues");
-      setTimeout(() => setFeedback(""), 4000);
+      setFeedback("Still closed — check back soon!");
+      setTimeout(() => setFeedback(""), 3500);
     } catch {
-      setFeedback("Could not reach server");
+      setFeedback("Couldn't reach server");
     } finally {
       setChecking(false);
     }
@@ -884,7 +884,7 @@ function ClosedScreen({
 
   useEffect(() => {
     // Auto-poll recruitment state every 20 seconds so that the page
-    // automatically becomes active the moment Core opens recruitment!
+    // automatically becomes active the moment recruitment opens
     if (!onRefresh) return;
     const interval = setInterval(() => {
       onRefresh();
@@ -896,23 +896,23 @@ function ClosedScreen({
     <div className="rec-closed">
       <div className="rec-closed__status-badge">
         <span className="rec-closed__pulse-dot" />
-        <span>Applications Currently Closed</span>
+        <span>Applications closed</span>
       </div>
 
       <div className="rec-closed__icon" aria-hidden="true">
         <LockIcon size={28} />
       </div>
 
-      <h1 className="rec-closed__title">Recruitment is Not Open Yet</h1>
+      <h1 className="rec-closed__title">Recruitments aren&apos;t open yet</h1>
 
       <p className="rec-closed__desc">
-        Applications for the BMSIT Coding Club are currently closed. This page is live and will
-        automatically become active with the application form the moment the Core team opens the recruitment portal.
+        We haven&apos;t kicked off this cycle yet. Once applications open, this page will
+        automatically load the form so you can apply right away.
       </p>
 
-      {/* Real-time live status indicator with manual check option */}
+      {/* Auto-update badge */}
       <div className="rec-closed__live-bar">
-        <span>● Live monitor active — auto-refreshing in background</span>
+        <span>Auto-updates when registrations open</span>
         <button
           type="button"
           className="rec-closed__check-btn"
@@ -920,7 +920,7 @@ function ClosedScreen({
           disabled={checking}
           aria-label="Check if recruitment has opened"
         >
-          {checking ? "Checking…" : "Check Now ↻"}
+          {checking ? "Checking…" : "Refresh"}
         </button>
       </div>
       {feedback && (
@@ -929,12 +929,12 @@ function ClosedScreen({
         </p>
       )}
 
-      {/* Prepare ahead / Teams preview */}
+      {/* Teams overview */}
       <div className="rec-closed__teams-section">
         <div className="rec-closed__teams-header">
-          <h2 className="rec-closed__teams-title">Explore the Teams You Can Join</h2>
+          <h2 className="rec-closed__teams-title">Teams you can join</h2>
           <p className="rec-closed__teams-subtitle">
-            When recruitment opens, every applicant can apply for up to two teams. Explore the divisions below to prepare your skills and interests:
+            You can apply to up to two teams per cycle. Take a look at what each team works on:
           </p>
         </div>
 
@@ -953,11 +953,11 @@ function ClosedScreen({
         </div>
       </div>
 
-      {/* Social channels where announcements happen */}
+      {/* Social channels */}
       <div className="rec-closed__socials-section">
-        <span className="rec-closed__socials-label">// Announcements &amp; Updates</span>
+        <span className="rec-closed__socials-label">// Stay in the loop</span>
         <p style={{ fontSize: 13, color: "var(--grey-600)", marginBottom: 14 }}>
-          Dates, cycle openings, and interview shortlists are announced on our official social handles:
+          Dates, form drops, and shortlists will be posted first on our socials:
         </p>
         <div className="rec-closed__socials-links">
           <a
@@ -998,13 +998,13 @@ function ClosedScreen({
       {/* Action buttons */}
       <div className="rec-closed__actions">
         <Link href="/" className="btn-secondary">
-          ← Back to Home
+          ← Back to home
         </Link>
         <Link href="/about" className="btn-secondary">
-          About the Club
+          About us
         </Link>
         <Link href="/events" className="btn-primary">
-          Explore Past Events
+          Explore events
         </Link>
       </div>
     </div>
